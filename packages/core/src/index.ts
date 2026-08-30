@@ -86,4 +86,9 @@ export type {
   SyncReport,
   SyncRequest,
 } from "./sync.ts"
-export { colonPath, buildItunesdb, readItunesdbTracks } from "./itunesdb-write.ts"
+export {
+  colonPath,
+  buildItunesdb,
+  itunesdbReserveBytes,
+  readItunesdbTracks,
+} from "./itunesdb-write.ts"

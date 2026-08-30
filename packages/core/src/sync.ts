@@ -54,7 +54,11 @@ import {
   type ArtworkSkip,
   type ArtworkWriteResult,
 } from "./artwork.ts"
-import { serializeSignedLayout, tracksForDatabase } from "./itunesdb-write.ts"
+import {
+  itunesdbReserveBytes,
+  serializeSignedLayout,
+  tracksForDatabase,
+} from "./itunesdb-write.ts"
 import {
   loadPlayData,
   playDataNeedsWriteback,
@@ -299,7 +303,7 @@ async function prepareSync(
   const hashes = await hashesForAdds(
     loaded.config.library,
     selected,
-    kind === "adoption" ? null : ledgerResult.value,
+    kind === "wipe" || kind === "adoption" ? null : ledgerResult.value,
   )
   const ledger =
     kind === "adoption"
@@ -318,7 +322,7 @@ async function prepareSync(
     kind,
     selected,
     skipped,
-    ledger,
+    ledger: kind === "wipe" ? null : ledger,
     hashes,
     freeBytes: report.freeSpaceBytes,
     forceModel: request.forceModel,
@@ -427,6 +431,14 @@ async function runPipeline(
 
     const hashes = new Map(ctx.hashes)
     const add = ctx.plan.add
+    const dbReserve = itunesdbReserveBytes(ctx.plan.keep.length + add.length)
+    if (ctx.plan.kind === "wipe") {
+      const live = await deviceFreeBytes(platform, ctx.serial)
+      if (live !== null) {
+        spaceRemaining = live
+      }
+    }
+    spaceRemaining = Math.max(0, spaceRemaining - dbReserve)
     const pending = new Map<string, Promise<string>>()
     const ensureHash = (libraryPath: string): Promise<string> => {
       const known = hashes.get(libraryPath)
@@ -472,13 +484,14 @@ async function runPipeline(
           extraSkipped.push({ path: track.path, reason: "disk_full" })
           continue
         }
+        const live = await deviceFreeBytes(platform, ctx.serial)
         const placed = await placeAdd({
           source: join(ctx.config.library, track.path),
           dest: join(ctx.mountPoint, track.devicePath),
           size: track.size,
           resume,
           spaceRemaining,
-          liveFreeBytes: await deviceFreeBytes(platform, ctx.serial),
+          liveFreeBytes: live === null ? null : Math.max(0, live - dbReserve),
         })
         if (placed.status === "disk-full") {
           diskFull = true

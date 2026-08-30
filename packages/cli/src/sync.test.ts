@@ -4,6 +4,7 @@ import {
   artworkFormatRows,
   devicePathFor,
   imageItems,
+  itunesdbReserveBytes,
   ledgerPath,
   mhiiDbid,
   parseArtworkdb,
@@ -13,7 +14,7 @@ import {
 } from "@omatune/core"
 import { fakeLayer, writeFakeDevice } from "@omatune/platform"
 import { existsSync } from "node:fs"
-import { copyFile, mkdir, mkdtemp, stat, writeFile } from "node:fs/promises"
+import { copyFile, mkdir, mkdtemp, stat, unlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { runMain } from "./main.ts"
@@ -742,7 +743,9 @@ path = "tone-suite/02-postgap.mp3"
 path = "tone-suite/03-steady.mp3"
 `,
   )
-  await emptyClassic(fake, 17_000)
+  const first = (await stat(join(LIBRARY, "tone-suite/01-pregap.mp3"))).size
+  const second = (await stat(join(LIBRARY, "tone-suite/02-postgap.mp3"))).size
+  await emptyClassic(fake, first + itunesdbReserveBytes(3) + Math.min(200, second - 1))
   const result = await sync(dir, fake, ["--yes", "--no-eject", "--json"])
   expect(result.code).toBe(2)
   expect(result.stderr).toContain("Device is full.")
@@ -756,6 +759,82 @@ path = "tone-suite/03-steady.mp3"
   const tracks = readItunesdbTracks(new Uint8Array(await Bun.file(dbPath).arrayBuffer()))
   expect(tracks).toHaveLength(1)
   expect(await Bun.file(join(volume(fake), "iPod_Control", "omatune.syncing")).exists()).toBe(false)
+})
+
+test("iTunesDB reserve skips the last add and still commits", async () => {
+  const dir = await makeDir("omatune-sync-reserve-")
+  const fake = await makeDir("omatune-sync-fake-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "tone-suite/01-pregap.mp3"
+
+[[include]]
+path = "tone-suite/02-postgap.mp3"
+`,
+  )
+  const first = (await stat(join(LIBRARY, "tone-suite/01-pregap.mp3"))).size
+  const second = (await stat(join(LIBRARY, "tone-suite/02-postgap.mp3"))).size
+  await emptyClassic(fake, first + second)
+  const result = await sync(dir, fake, ["--yes", "--no-eject", "--json"])
+  expect(result.code).toBe(2)
+  expect(result.stderr).toContain("Device is full.")
+  const events = jsonLines(result.stdout)
+  const report = events.find((event) => event.type === "report") as
+    | { added?: number; skipped?: number }
+    | undefined
+  expect(report?.added).toBe(1)
+  expect(report?.skipped).toBe(1)
+  const dbPath = join(volume(fake), "iPod_Control", "iTunes", "iTunesDB")
+  const tracks = readItunesdbTracks(new Uint8Array(await Bun.file(dbPath).arrayBuffer()))
+  expect(tracks).toHaveLength(1)
+  expect(tracks[0]?.title).toBe("Pregap")
+  expect(await Bun.file(join(volume(fake), "iPod_Control", "omatune.syncing")).exists()).toBe(false)
+})
+
+test("Foreign Device with a host Ledger recopies Selection as adds", async () => {
+  const dir = await makeDir("omatune-sync-wipe-ledger-")
+  const fake = await makeDir("omatune-sync-fake-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "tone-suite/01-pregap.mp3"
+`,
+  )
+  await emptyClassic(fake)
+  const first = await sync(dir, fake, ["--yes", "--no-eject"])
+  expect(first.code).toBe(0)
+  await writeFile(join(volume(fake), "iPod_Control", "iTunes", "iTunesDB"), "itunes\n")
+  await unlink(join(volume(fake), "iPod_Control", "omatune.json"))
+  const old = join(volume(fake), "iPod_Control", "Music", "F00", "old.mp3")
+  await mkdir(join(volume(fake), "iPod_Control", "Music", "F00"), { recursive: true })
+  await writeFile(old, "itunes-music")
+  const wiped = await runMain(
+    ["sync", "--device", SERIAL, "--config", dir, "--yes", "--no-eject", "--json"],
+    fakeLayer(fake),
+    testEnv(),
+    { stdin: "wipe\n", stderrWrite: () => {} },
+  )
+  expect(wiped.code).toBe(0)
+  const events = jsonLines(wiped.stdout)
+  const plan = events[0] as { type?: string; plan?: { kind?: string; add?: unknown[]; keep?: unknown[] } }
+  expect(plan.type).toBe("plan")
+  expect(plan.plan?.kind).toBe("wipe")
+  expect(plan.plan?.add).toHaveLength(1)
+  expect(plan.plan?.keep).toHaveLength(0)
+  expect(await Bun.file(old).exists()).toBe(false)
+  const dbPath = join(volume(fake), "iPod_Control", "iTunes", "iTunesDB")
+  const tracks = readItunesdbTracks(new Uint8Array(await Bun.file(dbPath).arrayBuffer()))
+  expect(tracks).toHaveLength(1)
+  expect(tracks[0]?.title).toBe("Pregap")
+  const rel = tracks[0]?.devicePath.replaceAll(":", "/").replace(/^\//, "") ?? ""
+  expect(await Bun.file(join(volume(fake), rel)).exists()).toBe(true)
 })
 
 test("a held lock exits 1 and a dead pid is taken over", async () => {
