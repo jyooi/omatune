@@ -32,6 +32,7 @@ hash58 is the clean-room signer in `packages/device-database/src/hash58.ts`.
 Workspace packages live in `packages/`.
 `Platform` in `packages/platform` is the only hardware seam.
 Config and Selection files load in `packages/core/src/config.ts`.
+The scanner, Rule evaluation, Ledger reader, and planner live in `packages/core`.
 
 ## Maintaining this file
 

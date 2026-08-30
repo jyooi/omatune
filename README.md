@@ -29,6 +29,13 @@ Print Selection Rule count and Ledger summary for one Device:
 bun run omatune status --device <serial>
 ```
 
+Print a Sync Plan for one Device.
+Nothing on the Device changes:
+
+```
+bun run omatune plan --device <serial> --json
+```
+
 omatune reads `$XDG_CONFIG_HOME/omatune/config.toml`.
 `--config` sets the config directory.
 `OMATUNE_CONFIG` overrides `--config`.
@@ -46,7 +53,7 @@ Build every package with `bun run build`.
 
 `packages/platform` holds the Platform service, the fake Layer, the Linux Layer, and the stub Layer.
 
-`packages/core` holds Device reports, exit codes, and config files.
+`packages/core` holds Device reports, exit codes, config files, the scanner, Rule evaluation, the Ledger reader, and the planner.
 
 `packages/cli` holds the command line entry.
 
