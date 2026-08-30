@@ -43,3 +43,12 @@ _Avoid_: stats, listening history, scrobbles
 **Read-back**:
 Copying Play Data from the Device to a file on the host before a Sync changes the Device.
 _Avoid_: reverse sync, import
+
+**Fixture**:
+A copy of a Device Database, with or without Artwork and audio, that tests read as a known-good input.
+A Fixture is Private when it still carries the owner's data and Public when it is Scrubbed.
+_Avoid_: sample, test data, golden file (a golden file is one use of a Fixture)
+
+**Scrub**:
+Rewriting a Private Fixture so no personal, identifying, or third-party content remains while every byte offset holds.
+_Avoid_: anonymise, redact, sanitise
