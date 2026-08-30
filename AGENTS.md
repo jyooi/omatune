@@ -17,6 +17,10 @@ The five canonical triage labels exist in Linear under their default names. See 
 
 Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
+### Verification Library
+
+Public CC0 Tracks are in `fixtures/audio/`. See `fixtures/audio/README.md`.
+
 ## Packages
 
 Workspace packages live in `packages/`.
