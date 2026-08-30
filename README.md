@@ -11,6 +11,14 @@ Install dependencies with `bun install`.
 
 ## Commands
 
+Open the Selection screen:
+
+```
+bun run omatune
+```
+
+Set `--device` when two or more Devices connect.
+
 List attached Devices:
 
 ```
@@ -57,6 +65,6 @@ Build every package with `bun run build`.
 
 `packages/cli` holds the command line entry.
 
-`packages/tui` is a placeholder for the terminal UI.
+`packages/tui` holds the Selection screen.
 
 `Platform` is the only hardware seam.

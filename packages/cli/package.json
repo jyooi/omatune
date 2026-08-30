@@ -9,7 +9,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "build": "bun build src/bin.ts --outdir dist --target bun"
+    "build": "bun build src/bin.ts --outdir dist --target bun --external '@opentui/core-*'"
   },
   "dependencies": {
     "@omatune/core": "workspace:*",

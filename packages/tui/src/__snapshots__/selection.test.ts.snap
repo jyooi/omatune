@@ -1,0 +1,65 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`Selection screen snapshot at 110x32 1`] = `
+" omatune ~/Music -> Classic 120GB 000A27001395D5A3 Verified                           24.3 GB free · 1 Tracks 
+┌─ Library (tick = on Device) ────────────────────────┐┌─ Device after Sync ─────────────────────────────────┐
+│▶[ ] Boards of Canada                                ││Radiohead                                            │
+│     [ ] Geogaddi (1)                                ││  + Kid A 1                                          │
+│     [ ] Tomorrow's Harvest (1)                      ││  - Pablo Honey removed                              │
+│ [~] Radiohead                                       ││                                                     │
+│     [x] Kid A (1)                                   ││                                                     │
+│     [ ] Pablo Honey (1)                             ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│┌─ Rules (path and exclude, d deletes) ─────────────┐││                                                     │
+││ + path = "Podcasts/**/*.m4a"                      │││                                                     │
+││ - album_artist = "Radiohead", album = "Pablo Honey│││                                                     │
+│└───────────────────────────────────────────────────┘││                                                     │
+└─────────────────────────────────────────────────────┘└─────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ +1 -1  6.2 MB  fits                                                                                        │
+│ ↑↓/jk move  Space tick  → tracks  d delete  Enter plan  Esc/q quit                                         │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+"
+`;
+
+exports[`Selection screen snapshot at 80x24 1`] = `
+" omatune ~/Music -> Classic 120GB 000A27001395D5A3 Verified  24.3 GB · 1 Tracks 
+┌─ Library (tick = on Device) ─────────────────────────────────────────────────┐
+│▶[ ] Boards of Canada                                                        █│
+│     [ ] Geogaddi (1)                                                        █│
+│     [ ] Tomorrow's Harvest (1)                                               │
+│ [~] Radiohead                                                                │
+│┌─ Rules (path and exclude, d deletes) ──────────────────────────────────────┐│
+││ + path = "Podcasts/**/*.m4a"                                               ││
+││ - album_artist = "Radiohead", album = "Pablo Honey"                        ││
+│└────────────────────────────────────────────────────────────────────────────┘│
+└──────────────────────────────────────────────────────────────────────────────┘
+┌─ Device after Sync ──────────────────────────────────────────────────────────┐
+│Radiohead                                                                     │
+│  + Kid A 1                                                                   │
+│  - Pablo Honey removed                                                       │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ +1 -1  6.2 MB  fits                                                          │
+│ ↑↓/jk move  Space tick  → tracks  d delete  Enter plan  Esc/q quit           │
+└──────────────────────────────────────────────────────────────────────────────┘
+"
+`;

@@ -1,13 +1,2 @@
-export type TuiResult = {
-  code: 1
-  stdout: string
-  stderr: string
-}
-
-export function runTui(): TuiResult {
-  return {
-    code: 1,
-    stdout: "",
-    stderr: "TUI is not implemented.\n",
-  }
-}
+export { runTui } from "./run.ts"
+export type { RunTuiInput, TuiResult } from "./run.ts"

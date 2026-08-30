@@ -6,6 +6,12 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target bun"
+    "build": "bun build src/index.ts --outdir dist --target bun --external '@opentui/core-*'"
+  },
+  "dependencies": {
+    "@omatune/core": "workspace:*",
+    "@omatune/platform": "workspace:*",
+    "@opentui/core": "0.5.9",
+    "effect": "3.22.1"
   }
 }
