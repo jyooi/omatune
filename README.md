@@ -52,9 +52,9 @@ bun run omatune sync --device <serial>
 
 The command asks `Sync now? [y/N]`.
 `--yes` does not ask except on a wipe.
-`--json` prints the plan, one progress object per line, and the report.
+`--json` prints the plan, messages, one progress object per line, and the report.
 `--no-eject` leaves the Device mounted.
-`--strict` refuses the Sync when the plan lists Skipped Tracks.
+`--strict` refuses the Sync when Skipped Tracks exist or Play Counts is corrupt.
 Success prints `Safe to unplug` after unmount.
 
 omatune reads `$XDG_CONFIG_HOME/omatune/config.toml`.
@@ -63,6 +63,10 @@ omatune reads `$XDG_CONFIG_HOME/omatune/config.toml`.
 A missing `config.toml` writes a starter file and exits 1.
 `config.toml` holds the Library path and a table for each Device.
 Each Device has `devices/<serial>/selection.toml` with include and exclude Rules.
+
+A Sync writes Play Data to `$XDG_DATA_HOME/omatune/play-data.json`.
+On macOS the data directory is `~/Library/Application Support/omatune`.
+A Sync copies failed Play Counts files to `read-back-failed/` in that directory.
 
 Run tests with `bun test`.
 
@@ -74,7 +78,7 @@ Build every package with `bun run build`.
 
 `packages/platform` holds the Platform service, the fake Layer, the Linux Layer, and the stub Layer.
 
-`packages/core` holds Device reports, exit codes, config files, the scanner, Rule evaluation, the Ledger reader, the planner, and Sync.
+`packages/core` holds Device reports, exit codes, config files, the scanner, Rule evaluation, the Ledger reader, the planner, Play Data, and Sync.
 
 `packages/cli` holds the command line entry.
 

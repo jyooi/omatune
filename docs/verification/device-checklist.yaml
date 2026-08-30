@@ -31,7 +31,7 @@ items:
     notes: Also not applicable on VIDEO_1 and VIDEO_2 with firmware before gapless support
   - id: DC-07
     step: Play one Track to the end, rate another 4 stars, skip a third after 2 s, eject, run sync again
-    pass: Plan shows read-back of play count 1, rating 4, skip count 1; play-data.json holds them
+    pass: Plan lists Play Counts pending. After Sync, play-data.json holds play count 1, rating 4, skip count 1
     not_applicable_for: []
   - id: DC-08
     step: Remove one Album from the Selection, add one, Sync
