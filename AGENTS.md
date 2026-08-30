@@ -25,6 +25,7 @@ Public CC0 Tracks are in `fixtures/audio/`. See `fixtures/audio/README.md`.
 
 The iTunesDB codec is in `packages/device-database`.
 The S2 golden test reads `fixtures/device/` when the private Fixture is present.
+hash58 is the clean-room signer in `packages/device-database/src/hash58.ts`.
 
 ## Packages
 

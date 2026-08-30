@@ -15,6 +15,9 @@ export type {
   SupportTier,
 } from "./model/types.ts"
 export { ItunesdbParseError } from "./error.ts";
+export { ItunesdbSignatureError } from "./signature-error.ts";
+export { firewireIdFromSerial, signHash58 } from "./hash58.ts";
+export { signItunesdb, signItunesdbForFamily } from "./signature.ts";
 export {
   parseChunk,
   serializeChunk,
