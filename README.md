@@ -49,7 +49,7 @@ Build every package with `bun run build`.
 
 ## Packages
 
-`packages/device-database` holds the model table, the iTunesDB codec, and the hash58 signer.
+`packages/device-database` holds the model table, the Device Database codec, and the hash58 signer.
 
 `packages/platform` holds the Platform service, the fake Layer, the Linux Layer, and the stub Layer.
 

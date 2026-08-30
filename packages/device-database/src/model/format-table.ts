@@ -1,5 +1,12 @@
 import type { FamilyFormat } from "./types.ts"
 
+export type ArtworkFormatRow = {
+  readonly id: number
+  readonly width: number
+  readonly height: number
+  readonly blockBytes: number
+}
+
 export const formatTable: Record<string, FamilyFormat> = {
   "iPod classic 120 GB (2008)": {
     signature: "hash58",
@@ -97,4 +104,24 @@ export const formatTable: Record<string, FamilyFormat> = {
     gapless: false,
     colourScreen: false,
   },
+}
+
+const classicArtworkFormats: ReadonlyArray<ArtworkFormatRow> = [
+  { id: 1055, width: 128, height: 128, blockBytes: 32768 },
+  { id: 1060, width: 320, height: 320, blockBytes: 204800 },
+  { id: 1061, width: 55, height: 55, blockBytes: 6160 },
+]
+
+export const artworkFormatRows: Record<string, ReadonlyArray<ArtworkFormatRow>> = {
+  "iPod classic 120 GB (2008)": classicArtworkFormats,
+  "iPod classic 80/160 GB (2007)": classicArtworkFormats,
+  "iPod classic 160 GB (Late 2009)": classicArtworkFormats,
+}
+
+export function artworkFormatRow(
+  family: string,
+  id: number,
+): ArtworkFormatRow | undefined {
+  const rows = artworkFormatRows[family]
+  return rows?.find((row) => row.id === id)
 }
