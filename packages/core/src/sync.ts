@@ -43,6 +43,7 @@ import {
 import { acquireSerialLock, releaseSerialLock } from "./lock.ts"
 import { evaluateSelection, type SelectedTrack } from "./rules.ts"
 import { scanLibrary } from "./scan.ts"
+import { artworkCacheDir, tracksForArtwork, writeDeviceArtwork } from "./artwork.ts"
 import { serializeSignedLayout, tracksForDatabase } from "./itunesdb-write.ts"
 
 export class SyncError extends Data.TaggedError("SyncError")<{
@@ -388,15 +389,14 @@ async function runPipeline(
     }
     await emitPhase(emit, "copy", bytesDone, bytesTotal, copied, add.length, null)
 
-    await emitPhase(emit, "artwork", 0, 0, 0, 0, null)
-    // HUF-270 Artwork runs here, after copy and before the Device Database write.
-    await runArtwork(ctx)
-
     const now = await Effect.runPromise(platform.now)
     const nextLedger = buildNextLedger(ctx, hashes, now)
+    await emitPhase(emit, "artwork", 0, 0, 0, 0, null)
+    const artworkDbids = await runArtwork(ctx, nextLedger)
+
     await mkdir(join(ctx.mountPoint, "iPod_Control", "iTunes"), { recursive: true })
     const selectedByPath = new Map(ctx.selected.map((track) => [track.relativePath, track]))
-    const dbTracks = tracksForDatabase(nextLedger.tracks, selectedByPath)
+    const dbTracks = tracksForDatabase(nextLedger.tracks, selectedByPath, artworkDbids)
     await emitPhase(emit, "database", 0, 1, 0, 1, "iTunesDB")
     const unsigned = serializeSignedLayout(dbTracks)
     const signed = signItunesdbForFamily(unsigned, ctx.serial, ctx.family)
@@ -436,8 +436,15 @@ export async function runReadBack(_ctx: SyncContext): Promise<void> {
   return
 }
 
-export async function runArtwork(_ctx: SyncContext): Promise<void> {
-  return
+export async function runArtwork(ctx: SyncContext, ledger: Ledger): Promise<ReadonlySet<string>> {
+  const selectedByPath = new Map(ctx.selected.map((track) => [track.relativePath, track]))
+  const result = await writeDeviceArtwork({
+    mountPoint: ctx.mountPoint,
+    family: ctx.family,
+    tracks: tracksForArtwork(ledger, selectedByPath),
+    cacheDir: artworkCacheDir(),
+  })
+  return result.dbidsWithArtwork
 }
 
 function buildNextLedger(

@@ -28,6 +28,32 @@ export function splitIthmbBlocks(
   return blocks;
 }
 
+export function rgb888ToRgb565Le(
+  rgb: Uint8Array,
+  width: number,
+  height: number,
+  blockBytes: number,
+): Uint8Array {
+  if (blockBytes < 0) {
+    throw new ItunesdbParseError(`ithmb block size ${blockBytes} is invalid`, 0);
+  }
+  const count = width * height;
+  const out = new Uint8Array(blockBytes);
+  const view = new DataView(out.buffer);
+  for (let i = 0; i < count; i += 1) {
+    const byteOffset = i * 2;
+    if (byteOffset + 2 > blockBytes) {
+      break;
+    }
+    const r = rgb[i * 3] ?? 0;
+    const g = rgb[i * 3 + 1] ?? 0;
+    const b = rgb[i * 3 + 2] ?? 0;
+    const pixel = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+    view.setUint16(byteOffset, pixel, true);
+  }
+  return out;
+}
+
 export function rgb565LeToRgb888(
   block: Uint8Array,
   width: number,
