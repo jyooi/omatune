@@ -2,18 +2,20 @@ import { expect, test } from "bun:test"
 import {
   artworkFiles,
   artworkFormatRows,
+  devicePathFor,
   imageItems,
   ledgerPath,
   mhiiDbid,
   parseArtworkdb,
   readItunesdbTracks,
+  sha256File,
   thumbnailsOf,
 } from "@omatune/core"
 import { fakeLayer, writeFakeDevice } from "@omatune/platform"
 import { existsSync } from "node:fs"
-import { mkdir, mkdtemp, stat, writeFile } from "node:fs/promises"
+import { copyFile, mkdir, mkdtemp, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { runMain } from "./main.ts"
 
 const SERIAL = "aaaaaaaaaaaaaaaa"
@@ -341,7 +343,7 @@ path = "tone-suite/01-pregap.mp3"
   )
 })
 
-test("Foreign Device is refused", async () => {
+test("Foreign Device wipe needs the typed word wipe", async () => {
   const dir = await makeDir("omatune-sync-foreign-")
   const fake = await makeDir("omatune-sync-fake-")
   await writeConfig(dir, LIBRARY)
@@ -360,10 +362,47 @@ path = "tone-suite/01-pregap.mp3"
     freeBytes: 10 * 1024 * 1024 * 1024,
     owner: "foreign",
   })
-  const result = await sync(dir, fake, ["--yes", "--no-eject"])
-  expect(result.code).toBe(1)
-  expect(result.stderr).toContain("foreign")
-  expect(result.stdout).toContain("Read-back skipped: Device is foreign.")
+  const old = join(volume(fake), "iPod_Control", "Music", "F00", "old.mp3")
+  await mkdir(join(volume(fake), "iPod_Control", "Music", "F00"), { recursive: true })
+  await writeFile(old, "itunes-music")
+  const skipped = await runMain(
+    ["sync", "--device", SERIAL, "--config", dir, "--yes", "--no-eject"],
+    fakeLayer(fake),
+    testEnv(),
+    { stderrWrite: () => {} },
+  )
+  expect(skipped.code).toBe(1)
+  expect(skipped.stderr).toContain("Sync cancelled")
+  expect(await Bun.file(old).exists()).toBe(true)
+  const prompts: string[] = []
+  const typedY = await runMain(
+    ["sync", "--device", SERIAL, "--config", dir, "--yes", "--no-eject", "--json"],
+    fakeLayer(fake),
+    testEnv(),
+    {
+      stdin: "y\n",
+      stderrWrite: (text) => {
+        prompts.push(text)
+      },
+    },
+  )
+  expect(typedY.code).toBe(1)
+  expect(prompts.some((text) => text.includes("Wipe and Sync?"))).toBe(true)
+  const wiped = await runMain(
+    ["sync", "--device", SERIAL, "--config", dir, "--yes", "--no-eject", "--json"],
+    fakeLayer(fake),
+    testEnv(),
+    { stdin: "wipe\n", stderrWrite: () => {} },
+  )
+  expect(wiped.code).toBe(0)
+  const events = jsonLines(wiped.stdout)
+  expect(events[0]?.type).toBe("plan")
+  expect((events[0] as { plan: { kind: string } }).plan.kind).toBe("wipe")
+  expect(await Bun.file(old).exists()).toBe(false)
+  expect(await Bun.file(join(volume(fake), "iPod_Control", "iTunes", "iTunesDB")).exists()).toBe(
+    true,
+  )
+  expect(await Bun.file(join(volume(fake), "iPod_Control", "omatune.json")).exists()).toBe(true)
 })
 
 test("--strict refuses on a Skipped Track", async () => {
@@ -594,4 +633,155 @@ test("mini family writes gapless fields the firmware may ignore", async () => {
   expect(byTitle.get("Pregap")?.gapless).toEqual(GAPLESS_PAIR)
   expect(byTitle.get("Postgap")?.gapless).toEqual(GAPLESS_PAIR)
   expect(byTitle.get("Alpha")?.gapless).toEqual(GAPLESS_ABSENT)
+})
+
+test("Adoption rebuilds the Ledger from content-addressed names", async () => {
+  const hostA = await makeDir("omatune-sync-adopt-a-")
+  const hostB = await makeDir("omatune-sync-adopt-b-")
+  const fake = await makeDir("omatune-sync-fake-")
+  await writeConfig(hostA, LIBRARY)
+  await writeConfig(hostB, LIBRARY)
+  const selection = `version = 1
+
+[[include]]
+path = "tone-suite/01-pregap.mp3"
+`
+  await writeSelection(hostA, selection)
+  await writeSelection(hostB, selection)
+  await emptyClassic(fake)
+  const first = await sync(hostA, fake, ["--yes", "--no-eject"])
+  expect(first.code).toBe(0)
+  const ledgerA = JSON.parse(await Bun.file(ledgerPath(hostA, SERIAL)).text()) as {
+    tracks: Array<{ libraryPath: string; dbid: string; devicePath: string }>
+  }
+  const musicPath = join(volume(fake), ledgerA.tracks[0]?.devicePath ?? "")
+  const before = await stat(musicPath)
+  const second = await sync(hostB, fake, ["--yes", "--no-eject", "--json"])
+  expect(second.code).toBe(0)
+  const events = jsonLines(second.stdout)
+  expect((events[0] as { plan: { kind: string; add: unknown[]; keep: unknown[] } }).plan.kind).toBe(
+    "adoption",
+  )
+  expect((events[0] as { plan: { add: unknown[] } }).plan.add).toHaveLength(0)
+  expect((events[0] as { plan: { keep: unknown[] } }).plan.keep).toHaveLength(1)
+  const after = await stat(musicPath)
+  expect(after.mtimeMs).toBe(before.mtimeMs)
+  const ledgerB = JSON.parse(await Bun.file(ledgerPath(hostB, SERIAL)).text()) as {
+    tracks: Array<{ dbid: string }>
+  }
+  expect(ledgerB.tracks).toHaveLength(1)
+  expect(ledgerB.tracks[0]?.dbid).not.toBe(ledgerA.tracks[0]?.dbid)
+})
+
+test("interrupted Sync resumes after a simulated kill between two copies", async () => {
+  const dir = await makeDir("omatune-sync-resume-")
+  const fake = await makeDir("omatune-sync-fake-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "tone-suite/01-pregap.mp3"
+`,
+  )
+  await emptyClassic(fake)
+  const first = await sync(dir, fake, ["--yes", "--no-eject"])
+  expect(first.code).toBe(0)
+  const dbPath = join(volume(fake), "iPod_Control", "iTunes", "iTunesDB")
+  const beforeDb = new Uint8Array(await Bun.file(dbPath).arrayBuffer())
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "tone-suite/01-pregap.mp3"
+
+[[include]]
+path = "tone-suite/02-postgap.mp3"
+
+[[include]]
+path = "tone-suite/03-steady.mp3"
+`,
+  )
+  const second = join(LIBRARY, "tone-suite/02-postgap.mp3")
+  const digest = await sha256File(second)
+  const devicePath = devicePathFor(digest, "mp3")
+  await mkdir(join(volume(fake), dirname(devicePath)), { recursive: true })
+  await copyFile(second, join(volume(fake), devicePath))
+  await writeFile(
+    join(volume(fake), "iPod_Control", "omatune.syncing"),
+    `${JSON.stringify({ serial: SERIAL, startedAt: 1 })}\n`,
+  )
+  const afterKillDb = new Uint8Array(await Bun.file(dbPath).arrayBuffer())
+  expect(Buffer.from(afterKillDb).equals(Buffer.from(beforeDb))).toBe(true)
+  const copiedMtime = (await stat(join(volume(fake), devicePath))).mtimeMs
+  const resumed = await sync(dir, fake, ["--yes", "--no-eject"])
+  expect(resumed.code).toBe(0)
+  expect(await Bun.file(join(volume(fake), "iPod_Control", "omatune.syncing")).exists()).toBe(false)
+  expect((await stat(join(volume(fake), devicePath))).mtimeMs).toBe(copiedMtime)
+  const tracks = readItunesdbTracks(new Uint8Array(await Bun.file(dbPath).arrayBuffer()))
+  expect(tracks).toHaveLength(3)
+})
+
+test("disk full mid-copy commits iTunesDB for present Tracks", async () => {
+  const dir = await makeDir("omatune-sync-full-")
+  const fake = await makeDir("omatune-sync-fake-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "tone-suite/01-pregap.mp3"
+
+[[include]]
+path = "tone-suite/02-postgap.mp3"
+
+[[include]]
+path = "tone-suite/03-steady.mp3"
+`,
+  )
+  await emptyClassic(fake, 17_000)
+  const result = await sync(dir, fake, ["--yes", "--no-eject", "--json"])
+  expect(result.code).toBe(2)
+  expect(result.stderr).toContain("Device is full.")
+  const events = jsonLines(result.stdout)
+  const report = events.find((event) => event.type === "report") as
+    | { added?: number; skipped?: number }
+    | undefined
+  expect(report?.added).toBe(1)
+  expect(report?.skipped).toBe(2)
+  const dbPath = join(volume(fake), "iPod_Control", "iTunes", "iTunesDB")
+  const tracks = readItunesdbTracks(new Uint8Array(await Bun.file(dbPath).arrayBuffer()))
+  expect(tracks).toHaveLength(1)
+  expect(await Bun.file(join(volume(fake), "iPod_Control", "omatune.syncing")).exists()).toBe(false)
+})
+
+test("a held lock exits 1 and a dead pid is taken over", async () => {
+  const dir = await makeDir("omatune-sync-lock-")
+  const fake = await makeDir("omatune-sync-fake-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "tone-suite/01-pregap.mp3"
+`,
+  )
+  await emptyClassic(fake)
+  const lockPath = join(dir, "devices", SERIAL, "sync.lock")
+  await writeFile(lockPath, `${process.pid}\n`)
+  const held = await sync(dir, fake, ["--yes", "--no-eject"])
+  expect(held.code).toBe(1)
+  expect(held.stderr).toContain("locked")
+  const child = Bun.spawn(["sleep", "30"])
+  const pid = child.pid
+  child.kill()
+  await child.exited
+  await writeFile(lockPath, `${pid}\n`)
+  const taken = await sync(dir, fake, ["--yes", "--no-eject"])
+  expect(taken.code).toBe(0)
+  expect(await Bun.file(lockPath).exists()).toBe(false)
 })

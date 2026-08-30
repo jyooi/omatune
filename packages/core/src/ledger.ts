@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto"
 import { mkdir, rename } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { Either, ParseResult, Schema } from "effect"
@@ -122,4 +123,19 @@ export async function writeLedgerAtomic(dir: string, ledger: Ledger): Promise<vo
   await mkdir(dirname(file), { recursive: true })
   await Bun.write(tmp, serializeLedger(ledger))
   await rename(tmp, file)
+}
+
+export function freshDbid(used: Set<string>): string {
+  while (true) {
+    const bytes = randomBytes(8)
+    const value = bytes.readBigUInt64LE(0)
+    if (value === 0n) {
+      continue
+    }
+    const text = value.toString()
+    if (!used.has(text)) {
+      used.add(text)
+      return text
+    }
+  }
 }

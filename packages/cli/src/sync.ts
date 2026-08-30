@@ -81,16 +81,27 @@ export async function runSyncCommand(
 }
 
 async function confirmSync(plan: SyncPlan, flags: Flags, io: RunIo): Promise<boolean> {
-  if (plan.kind !== "wipe" && flags.yes) {
+  if (plan.kind === "wipe") {
+    writePrompt("Wipe and Sync? ", io)
+    const line = await readConfirmLine(io)
+    return line.trim() === "wipe"
+  }
+  if (flags.yes) {
     return true
   }
-  if (io.stderrWrite) {
-    io.stderrWrite("Sync now? [y/N] ")
-  } else if (typeof process.stderr.write === "function") {
-    process.stderr.write("Sync now? [y/N] ")
-  }
+  writePrompt("Sync now? [y/N] ", io)
   const line = await readConfirmLine(io)
   return line.trim().toLowerCase() === "y"
+}
+
+function writePrompt(text: string, io: RunIo): void {
+  if (io.stderrWrite) {
+    io.stderrWrite(text)
+    return
+  }
+  if (typeof process.stderr.write === "function") {
+    process.stderr.write(text)
+  }
 }
 
 async function readConfirmLine(io: RunIo): Promise<string> {
