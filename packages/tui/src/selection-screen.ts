@@ -11,9 +11,30 @@ import {
   type Clock,
   type KeyEvent,
 } from "@opentui/core"
-import type { AppSelection, Ledger, ScannedFile } from "@omatune/core"
+import {
+  SyncError,
+  type AppSelection,
+  type Ledger,
+  type ScannedFile,
+  type SyncEvent,
+  type SyncPlan,
+  type SyncProgress,
+  type SyncReport,
+  type SyncRequest,
+} from "@omatune/core"
 import { formatBytes } from "./bytes.ts"
+import { deviceLines, type DeviceFacts } from "./device-text.ts"
 import { palette } from "./palette.ts"
+import { planLines } from "./plan-text.ts"
+import {
+  countersLine,
+  currentFileLine,
+  progressBar,
+  startRate,
+  updateRate,
+  type CopyRate,
+} from "./progress.ts"
+import { reportLines, reportStdout } from "./report-text.ts"
 import {
   albumKey,
   deleteVisibleRule,
@@ -33,6 +54,11 @@ const REDRAW_MS = 100
 const WIDE_MIN = 110
 const SCROLL = { flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0 } as const
 
+export type TuiSyncRun = (
+  request: SyncRequest,
+  onEvent: (event: SyncEvent) => void,
+) => Promise<void>
+
 export type SelectionHost = {
   readonly libraryRoot: string
   readonly deviceName: string
@@ -44,6 +70,17 @@ export type SelectionHost = {
   readonly selection: AppSelection
   readonly ledger: Ledger | null
   readonly writeSelection: (selection: AppSelection) => Promise<void>
+  readonly family?: string | null
+  readonly volumeFormat?: string
+  readonly ownerState?: string
+  readonly mountPoint?: string | null
+  readonly notes?: ReadonlyArray<string>
+  readonly configDir?: string
+  readonly dataDir?: string
+  readonly yes?: boolean
+  readonly noEject?: boolean
+  readonly strict?: boolean
+  readonly forceModel?: string | null
 }
 
 export type SelectionHandle = {
@@ -53,12 +90,22 @@ export type SelectionHandle = {
   treeRowPoint: (index: number) => { x: number; y: number } | null
 }
 
+export type TuiFinish = {
+  code: 0 | 1 | 2
+  stdout: string
+  stderr: string
+}
+
+type Mode = "select" | "plan" | "wipe" | "sync" | "report" | "device"
+
 export function attachSelectionScreen(
   renderer: CliRenderer,
   host: SelectionHost,
   options: {
     clock?: Clock
     onQuit?: (code: 0 | 1) => void
+    onFinish?: (result: TuiFinish) => void
+    runSync?: TuiSyncRun
   } = {},
 ): SelectionHandle {
   const clock = options.clock ?? new SystemClock()
@@ -69,7 +116,22 @@ export function attachSelectionScreen(
   let writing = Promise.resolve()
   let lastDraw = Number.NEGATIVE_INFINITY
   let drawTimer: ReturnType<Clock["setTimeout"]> | null = null
+  let lastMode: Mode = "select"
   let disposed = false
+  let mode: Mode = "select"
+  let previousMode: Mode = "select"
+  let livePlan: SyncPlan | null = null
+  let pendingConfirm: ((ok: boolean) => void) | null = null
+  let earlyConfirm: boolean | null = null
+  let wipeBuf = ""
+  let progress: SyncProgress | null = null
+  let rate: CopyRate | null = null
+  let report: SyncReport | null = null
+  let exitReason: string | null = null
+  let syncStartedAt = 0
+  let syncEndedAt = 0
+  let syncing = false
+  let finishCode: 0 | 1 | 2 = 0
 
   const headerLeft = new TextRenderable(renderer, { content: "", fg: palette.text })
   const headerRight = new TextRenderable(renderer, { content: "", fg: palette.text })
@@ -154,8 +216,33 @@ export function attachSelectionScreen(
   panes.add(libraryPane)
   panes.add(devicePane)
 
-  const summary = new TextRenderable(renderer, { content: "", fg: palette.text })
-  const keysLine = new TextRenderable(renderer, { content: "", fg: palette.text })
+  const deviceBody = new ScrollBoxRenderable(renderer, {
+    ...SCROLL,
+    scrollX: false,
+    contentOptions: { flexDirection: "column", paddingLeft: 1 },
+  })
+  const deviceScreen = new BoxRenderable(renderer, {
+    flexDirection: "column",
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minHeight: 0,
+    borderStyle: "single",
+    borderColor: palette.accent,
+    title: " Device ",
+    titleColor: palette.text,
+  })
+  deviceScreen.add(deviceBody)
+
+  const stripBody = new ScrollBoxRenderable(renderer, {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minHeight: 0,
+    scrollX: false,
+    contentOptions: { flexDirection: "column" },
+  })
+  const promptLine = new TextRenderable(renderer, { content: "", fg: palette.text })
   const strip = new BoxRenderable(renderer, {
     flexDirection: "column",
     height: 4,
@@ -164,8 +251,8 @@ export function attachSelectionScreen(
     borderColor: palette.muted,
     paddingLeft: 1,
   })
-  strip.add(summary)
-  strip.add(keysLine)
+  strip.add(stripBody)
+  strip.add(promptLine)
 
   const root = new BoxRenderable(renderer, {
     flexDirection: "column",
@@ -211,6 +298,16 @@ export function attachSelectionScreen(
     if (disposed) {
       return
     }
+    const modeChanged = lastMode !== mode
+    lastMode = mode
+    if (modeChanged) {
+      if (drawTimer !== null) {
+        clock.clearTimeout(drawTimer)
+        drawTimer = null
+      }
+      draw()
+      return
+    }
     const now = clock.now()
     const wait = REDRAW_MS - (now - lastDraw)
     if (wait <= 0) {
@@ -243,14 +340,36 @@ export function attachSelectionScreen(
     const selected = selectedPathsOf(host.files, selection)
     const treeRows = flattenTree(artists, selected, expanded)
     const rules = visibleRules(selection)
-    const plan = planOf(host.files, selection, host.ledger, host.freeBytes)
+    const localPlan = planOf(host.files, selection, host.ledger, host.freeBytes)
     paintTree(treeRows)
     paintRules(rules, treeRows.length)
-    paintMirror(plan)
-    const fits = plan.freeSpaceAfter >= 0 ? "fits" : "does not fit"
-    summary.content = st`${fg(palette.green)(`+${plan.add.length}`)} ${fg(palette.red)(`-${plan.remove.length}`)}  ${formatBytes(plan.bytesNeeded)}  ${fits}`
-    keysLine.content = keyHelp()
+    paintMirror(livePlan ?? localPlan)
+    paintDevice()
+    paintStrip(localPlan)
+    showDevice(mode === "device")
     renderer.requestRender()
+  }
+
+  function showDevice(on: boolean): void {
+    const children = [...root.getChildren()]
+    for (const child of children) {
+      if (child === panes || child === deviceScreen) {
+        root.remove(child)
+      }
+    }
+    root.remove(strip)
+    root.add(on ? deviceScreen : panes)
+    root.add(strip)
+  }
+
+  function paintDevice(): void {
+    for (const child of [...deviceBody.getChildren()]) {
+      deviceBody.remove(child)
+      child.destroy()
+    }
+    for (const line of deviceLines(deviceFacts(host))) {
+      deviceBody.add(new TextRenderable(renderer, { content: line }))
+    }
   }
 
   function paintTree(treeRows: TreeRow[]): void {
@@ -266,6 +385,9 @@ export function attachSelectionScreen(
         height: 1,
         backgroundColor: active ? palette.panelHi : undefined,
         onMouseDown: () => {
+          if (mode !== "select") {
+            return
+          }
           cursor = index
           if (row.kind === "artist" || row.kind === "album") {
             space()
@@ -343,6 +465,97 @@ export function attachSelectionScreen(
     }
   }
 
+  function clearStripBody(): void {
+    for (const child of [...stripBody.getChildren()]) {
+      stripBody.remove(child)
+      child.destroy()
+    }
+  }
+
+  function paintStrip(localPlan: SyncPlan): void {
+    clearStripBody()
+    const viewing = mode === "device" ? previousMode : mode
+    if (viewing === "select") {
+      strip.height = 4
+      strip.borderColor = palette.muted
+      strip.title = undefined
+      const fits = localPlan.freeSpaceAfter >= 0 ? "fits" : "does not fit"
+      stripBody.add(
+        new TextRenderable(renderer, {
+          content: st`${fg(palette.green)(`+${localPlan.add.length}`)} ${fg(palette.red)(`-${localPlan.remove.length}`)}  ${formatBytes(localPlan.bytesNeeded)}  ${fits}`,
+        }),
+      )
+      promptLine.content = mode === "device" ? deviceKeys() : keyHelp()
+      return
+    }
+    if (viewing === "plan" || viewing === "wipe") {
+      const plan = livePlan ?? localPlan
+      const cap = Math.min(16, Math.max(8, renderer.height - 10))
+      strip.height = cap
+      strip.borderColor = palette.accent
+      strip.title = " Sync Plan "
+      for (const line of planLines(plan)) {
+        stripBody.add(new TextRenderable(renderer, { content: line }))
+      }
+      promptLine.content = confirmPrompt()
+      return
+    }
+    if (viewing === "sync") {
+      strip.height = 7
+      strip.borderColor = palette.accent
+      strip.title = " Sync "
+      const phase = progress?.phase ?? "copy"
+      stripBody.add(new TextRenderable(renderer, { content: st`${bold(fg(palette.accent)(`Phase: ${phase}`))}` }))
+      const width = Math.max(10, renderer.width - 8)
+      stripBody.add(
+        new TextRenderable(renderer, {
+          content: progressBar(width, progress?.bytesDone ?? 0, progress?.bytesTotal ?? 0),
+        }),
+      )
+      stripBody.add(
+        new TextRenderable(renderer, {
+          content: countersLine({
+            bytesDone: progress?.bytesDone ?? 0,
+            bytesTotal: progress?.bytesTotal ?? 0,
+            filesDone: progress?.filesDone ?? 0,
+            filesTotal: progress?.filesTotal ?? 0,
+            bytesPerSec: rate?.bytesPerSec ?? 0,
+          }),
+        }),
+      )
+      stripBody.add(
+        new TextRenderable(renderer, {
+          content: currentFileLine(progress?.currentFile ?? null),
+        }),
+      )
+      promptLine.content = st`${dim("Ctrl-C leaves the Device ready to resume")}`
+      return
+    }
+    strip.height = Math.min(14, Math.max(8, renderer.height - 10))
+    strip.borderColor = palette.green
+    strip.title = " Report "
+    const elapsedMs = Math.max(0, syncEndedAt - syncStartedAt)
+    for (const line of reportLines({ report, elapsedMs, exitReason, skipped: livePlan?.skipped ?? [] })) {
+      stripBody.add(new TextRenderable(renderer, { content: line }))
+    }
+    promptLine.content =
+      mode === "device" ? deviceKeys() : st`${pair("Enter", "exit")}  ${pair("q", "quit")}`
+  }
+
+  function confirmPrompt() {
+    if (mode === "device") {
+      return deviceKeys()
+    }
+    if (mode === "wipe") {
+      return st`${bold(fg(palette.yellow)("Wipe and Sync?"))} ${wipeBuf}${dim(" (type wipe)")}`
+    }
+    return st`${bold(fg(palette.yellow)("Sync now? [y/N]"))}  ${pair("Esc", "back")}`
+  }
+
+  function deviceKeys() {
+    return st`${pair("Esc", "back")}  ${pair("i", "Device")}`
+  }
+
   function space(): void {
     const now = rowsNow()
     if (cursor >= now.tree.length) {
@@ -366,16 +579,226 @@ export function attachSelectionScreen(
     }
   }
 
+  function openDevice(): void {
+    if (mode === "device") {
+      mode = previousMode
+      requestDraw()
+      return
+    }
+    previousMode = mode
+    mode = "device"
+    requestDraw()
+  }
+
+  function answerConfirm(ok: boolean): void {
+    const pending = pendingConfirm
+    pendingConfirm = null
+    if (!pending) {
+      earlyConfirm = ok
+      if (!ok) {
+        mode = "select"
+        livePlan = null
+        requestDraw()
+      }
+      return
+    }
+    earlyConfirm = null
+    if (!ok) {
+      mode = "select"
+      livePlan = null
+      requestDraw()
+    }
+    pending(ok)
+  }
+
+  function onConfirm(plan: SyncPlan): Promise<boolean> {
+    livePlan = plan
+    wipeBuf = ""
+    if (earlyConfirm === false) {
+      earlyConfirm = null
+      mode = "select"
+      livePlan = null
+      requestDraw()
+      return Promise.resolve(false)
+    }
+    if ((host.yes || earlyConfirm === true) && plan.kind !== "wipe") {
+      earlyConfirm = null
+      mode = "plan"
+      requestDraw()
+      return Promise.resolve(true)
+    }
+    earlyConfirm = null
+    mode = plan.kind === "wipe" ? "wipe" : "plan"
+    requestDraw()
+    return new Promise((resolve) => {
+      pendingConfirm = resolve
+    })
+  }
+
+  function onSyncEvent(event: SyncEvent): void {
+    if (disposed) {
+      return
+    }
+    if (event.type === "plan") {
+      if (earlyConfirm === false) {
+        return
+      }
+      livePlan = event.plan
+      if (mode === "select") {
+        mode = event.plan.kind === "wipe" ? "wipe" : "plan"
+      }
+      requestDraw()
+      return
+    }
+    if (event.type === "progress") {
+      mode = "sync"
+      progress = event
+      rate = rate ? updateRate(rate, clock, event.bytesDone) : startRate(clock, event.bytesDone)
+      requestDraw()
+      return
+    }
+    if (event.type === "report") {
+      report = event
+      syncEndedAt = clock.now()
+      mode = "report"
+      finishCode = 0
+      exitReason = null
+      requestDraw()
+    }
+  }
+
+  async function beginSync(): Promise<void> {
+    if (!options.runSync || syncing || mode !== "select") {
+      return
+    }
+    syncing = true
+    livePlan = null
+    earlyConfirm = null
+    progress = null
+    rate = null
+    report = null
+    exitReason = null
+    finishCode = 0
+    syncStartedAt = clock.now()
+    syncEndedAt = syncStartedAt
+    mode = "plan"
+    requestDraw()
+    const request: SyncRequest = {
+      serial: host.serial,
+      configDir: host.configDir ?? "",
+      yes: host.yes === true,
+      noEject: host.noEject === true,
+      strict: host.strict === true,
+      forceModel: host.forceModel ?? null,
+      dataDir: host.dataDir ?? "",
+      confirm: onConfirm,
+    }
+    try {
+      await options.runSync(request, onSyncEvent)
+    } catch (cause) {
+      if (disposed) {
+        return
+      }
+      const error = toSyncError(cause)
+      syncEndedAt = clock.now()
+      if (error.message === "Sync cancelled.") {
+        mode = "select"
+        livePlan = null
+        pendingConfirm = null
+        requestDraw()
+        return
+      }
+      exitReason = error.message
+      finishCode = error.code
+      mode = "report"
+      requestDraw()
+      return
+    } finally {
+      syncing = false
+    }
+  }
+
   function onKey(key: KeyEvent): void {
     if (key.ctrl && key.name === "c") {
-      quit(0)
+      if (mode === "sync") {
+        answerConfirm(false)
+        finish({ code: 2, stdout: "", stderr: "" })
+        return
+      }
+      finish({ code: 0, stdout: "", stderr: "" })
+      return
+    }
+    if (mode === "device") {
+      if (key.name === "i" || key.name === "escape") {
+        openDevice()
+      }
+      if (key.name === "q") {
+        finishFromHere()
+      }
+      return
+    }
+    if (mode === "report") {
+      if (key.name === "i") {
+        openDevice()
+        return
+      }
+      if (key.name === "return" || key.name === "q" || key.name === "escape") {
+        finishFromHere()
+      }
+      return
+    }
+    if (mode === "sync") {
+      return
+    }
+    if (mode === "wipe") {
+      if (key.name === "escape") {
+        answerConfirm(false)
+        return
+      }
+      if (key.name === "return") {
+        answerConfirm(wipeBuf.trim() === "wipe")
+        return
+      }
+      if (key.name === "backspace") {
+        wipeBuf = wipeBuf.slice(0, -1)
+        requestDraw()
+        return
+      }
+      const ch = key.sequence
+      if (ch.length === 1 && !key.ctrl && ch !== "\u001b") {
+        wipeBuf += ch
+        requestDraw()
+      }
+      return
+    }
+    if (mode === "plan") {
+      if (key.name === "i") {
+        openDevice()
+        return
+      }
+      if (key.name === "escape") {
+        answerConfirm(false)
+        return
+      }
+      if (key.name === "y") {
+        answerConfirm(true)
+        return
+      }
+      if (key.name === "n" || key.name === "return") {
+        answerConfirm(false)
+      }
       return
     }
     if (key.name === "q" || key.name === "escape") {
-      quit(0)
+      finish({ code: 0, stdout: "", stderr: "" })
+      return
+    }
+    if (key.name === "i") {
+      openDevice()
       return
     }
     if (key.name === "return") {
+      void beginSync()
       return
     }
     if (key.name === "up" || key.name === "k") {
@@ -414,14 +837,30 @@ export function attachSelectionScreen(
     }
   }
 
-  function quit(code: 0 | 1): void {
+  function finishFromHere(): void {
+    const elapsedMs = Math.max(0, (syncEndedAt || clock.now()) - syncStartedAt)
+    const stdout =
+      report || exitReason
+        ? reportStdout({ report, elapsedMs, exitReason, skipped: livePlan?.skipped ?? [] })
+        : ""
+    finish({ code: finishCode, stdout, stderr: "" })
+  }
+
+  function finish(result: TuiFinish): void {
     if (disposed) {
       return
     }
+    answerConfirm(false)
     dispose()
     void writing.then(
-      () => options.onQuit?.(code),
-      () => options.onQuit?.(code),
+      () => {
+        options.onFinish?.(result)
+        options.onQuit?.(result.code === 0 ? 0 : 1)
+      },
+      () => {
+        options.onFinish?.(result)
+        options.onQuit?.(result.code === 0 ? 0 : 1)
+      },
     )
   }
 
@@ -457,6 +896,31 @@ export function attachSelectionScreen(
   }
 }
 
+function toSyncError(cause: unknown): SyncError {
+  if (cause instanceof SyncError) {
+    return cause
+  }
+  const message = cause instanceof Error ? cause.message : String(cause)
+  const code =
+    cause !== null && typeof cause === "object" && "code" in cause && (cause.code === 1 || cause.code === 2)
+      ? cause.code
+      : 2
+  return new SyncError({ message, code })
+}
+
+function deviceFacts(host: SelectionHost): DeviceFacts {
+  return {
+    serial: host.serial,
+    family: host.family ?? null,
+    tier: host.tier,
+    volumeFormat: host.volumeFormat ?? "-",
+    freeBytes: host.freeBytes,
+    ownerState: host.ownerState ?? "-",
+    mountPoint: host.mountPoint ?? null,
+    notes: host.notes ?? [],
+  }
+}
+
 function treeLabel(row: TreeRow) {
   if (row.kind === "artist") {
     return st`${tick(row.state)} ${bold(row.name)}`
@@ -478,9 +942,12 @@ function tick(state: "all" | "some" | "none") {
   return fg(palette.muted)("[ ]")
 }
 
+function pair(key: string, label: string) {
+  return st`${bold(fg(palette.accent)(key))} ${dim(label)}`
+}
+
 function keyHelp() {
-  const pair = (key: string, label: string) => st`${bold(fg(palette.accent)(key))} ${dim(label)}`
-  return st`${pair("↑↓/jk", "move")}  ${pair("Space", "tick")}  ${pair("→", "tracks")}  ${pair("d", "delete")}  ${pair("Enter", "plan")}  ${pair("Esc/q", "quit")}`
+  return st`${pair("↑↓/jk", "move")}  ${pair("Space", "tick")}  ${pair("→", "tracks")}  ${pair("d", "delete")}  ${pair("Enter", "plan")}  ${pair("i", "Device")}  ${pair("Esc/q", "quit")}`
 }
 
 function formatFree(bytes: number): string {
