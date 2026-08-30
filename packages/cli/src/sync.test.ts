@@ -147,8 +147,10 @@ path = "tone-suite"
   const first = await sync(dir, fake, ["--yes", "--no-eject"])
   expect(first.code).toBe(0)
   const dbPath = join(volume(fake), "iPod_Control", "iTunes", "iTunesDB")
+  const artworkPath = join(volume(fake), "iPod_Control", "Artwork", "ArtworkDB")
   const musicRoot = join(volume(fake), "iPod_Control", "Music")
   const beforeDb = await stat(dbPath)
+  const beforeArtwork = await stat(artworkPath)
   const musicFiles: string[] = []
   const walk = async (abs: string) => {
     const iter = new Bun.Glob("**/*").scan({ cwd: abs, onlyFiles: true })
@@ -163,11 +165,38 @@ path = "tone-suite"
   const afterDb = await stat(dbPath)
   expect(afterDb.mtimeMs).toBe(beforeDb.mtimeMs)
   expect(afterDb.size).toBe(beforeDb.size)
+  const afterArtwork = await stat(artworkPath)
+  expect(afterArtwork.mtimeMs).toBe(beforeArtwork.mtimeMs)
+  expect(afterArtwork.size).toBe(beforeArtwork.size)
   const afterMusic = await Promise.all(musicFiles.map((file) => stat(file)))
   for (let i = 0; i < beforeMusic.length; i += 1) {
     expect(afterMusic[i]?.mtimeMs).toBe(beforeMusic[i]?.mtimeMs)
     expect(afterMusic[i]?.size).toBe(beforeMusic[i]?.size)
   }
+})
+
+test("second Sync restores a missing ArtworkDB", async () => {
+  const dir = await makeDir("omatune-sync-art-repair-")
+  const fake = await makeDir("omatune-sync-fake-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "tone-suite"
+`,
+  )
+  await emptyClassic(fake)
+  const first = await sync(dir, fake, ["--yes", "--no-eject"])
+  expect(first.code).toBe(0)
+  const artworkPath = join(volume(fake), "iPod_Control", "Artwork", "ArtworkDB")
+  await Bun.file(artworkPath).unlink()
+  const second = await sync(dir, fake, ["--yes", "--no-eject"])
+  expect(second.code).toBe(0)
+  const bytes = new Uint8Array(await Bun.file(artworkPath).arrayBuffer())
+  const items = imageItems(parseArtworkdb(bytes))
+  expect(items).toHaveLength(4)
 })
 
 test("second Sync deletes Music files that no Ledger entry names", async () => {

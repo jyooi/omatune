@@ -51,6 +51,7 @@ export { parseId3, readLameGapless, readTrackTags } from "./tags.ts"
 export type { Codec, Gapless, TrackTags } from "./tags.ts"
 export { wipeIpodControl } from "./device-fs.ts"
 export { ARTWORK_DIR, ARTWORKDB, artworkCacheDir, writeDeviceArtwork } from "./artwork.ts"
+export type { ArtworkSkip, ArtworkWriteResult } from "./artwork.ts"
 export {
   artworkFiles,
   artworkFormatRows,

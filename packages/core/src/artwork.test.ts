@@ -3,6 +3,7 @@ import { mkdtemp } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { crc32, deflateSync } from "node:zlib"
+import { encode } from "jpeg-js"
 import { lookupByLibgpodKey } from "@omatune/device-database"
 import { writeDeviceArtwork } from "./artwork.ts"
 
@@ -71,6 +72,102 @@ test("a family without a colour screen writes no Artwork", async () => {
   )
 })
 
+test("a Track whose cover cannot be decoded is Skipped-for-artwork", async () => {
+  if (!CLASSIC) {
+    throw new Error("missing classic family")
+  }
+  const root = await mkdtemp(join(tmpdir(), "omatune-art-sof2-"))
+  const result = await writeDeviceArtwork({
+    mountPoint: join(root, "mount"),
+    family: CLASSIC,
+    cacheDir: join(root, "cache"),
+    tracks: [track("a/01.mp3", "1", "A", "Album", sof2Jpeg())],
+  })
+  expect(result.dbidsWithArtwork.size).toBe(0)
+  expect(result.skipped).toEqual([{ path: "a/01.mp3", reason: "progressive_jpeg" }])
+  expect(result.wrote).toBe(true)
+  const { imageItems, parseArtworkdb } = await import("@omatune/device-database")
+  const bytes = new Uint8Array(
+    await Bun.file(join(root, "mount", "iPod_Control", "Artwork", "ArtworkDB")).arrayBuffer(),
+  )
+  expect(imageItems(parseArtworkdb(bytes))).toHaveLength(0)
+})
+
+test("an Album falls back to the next path-sorted Track with a decodable cover", async () => {
+  if (!CLASSIC) {
+    throw new Error("missing classic family")
+  }
+  const root = await mkdtemp(join(tmpdir(), "omatune-art-fallback-"))
+  const result = await writeDeviceArtwork({
+    mountPoint: join(root, "mount"),
+    family: CLASSIC,
+    cacheDir: join(root, "cache"),
+    tracks: [
+      track("a/01.mp3", "1", "A", "Album", sof2Jpeg()),
+      track("a/02.mp3", "2", "A", "Album", baselineJpeg()),
+    ],
+  })
+  expect(result.skipped).toEqual([{ path: "a/01.mp3", reason: "progressive_jpeg" }])
+  expect([...result.dbidsWithArtwork]).toEqual(["2"])
+  const { imageItems, mhiiDbid, parseArtworkdb } = await import("@omatune/device-database")
+  const bytes = new Uint8Array(
+    await Bun.file(join(root, "mount", "iPod_Control", "Artwork", "ArtworkDB")).arrayBuffer(),
+  )
+  const items = imageItems(parseArtworkdb(bytes))
+  expect(items).toHaveLength(1)
+  expect(mhiiDbid(items[0]!).toString()).toBe("2")
+})
+
+test("matching Ledger hashes skip a Device Artwork rewrite", async () => {
+  if (!CLASSIC) {
+    throw new Error("missing classic family")
+  }
+  const root = await mkdtemp(join(tmpdir(), "omatune-art-skip-"))
+  const cover = pngSolid(4, 4, [46, 139, 87])
+  const input = {
+    mountPoint: join(root, "mount"),
+    family: CLASSIC,
+    cacheDir: join(root, "cache"),
+    tracks: [track("a.mp3", "9", "A", "B", cover)],
+  }
+  const first = await writeDeviceArtwork(input)
+  expect(first.wrote).toBe(true)
+  const dbPath = join(root, "mount", "iPod_Control", "Artwork", "ArtworkDB")
+  await Bun.write(dbPath, "marker")
+  const second = await writeDeviceArtwork({
+    ...input,
+    priorHashes: first.hashes,
+  })
+  expect(second.wrote).toBe(false)
+  expect(await Bun.file(dbPath).text()).toBe("marker")
+})
+
+test("a missing ArtworkDB is rewritten when Ledger hashes still match", async () => {
+  if (!CLASSIC) {
+    throw new Error("missing classic family")
+  }
+  const root = await mkdtemp(join(tmpdir(), "omatune-art-repair-"))
+  const cover = pngSolid(4, 4, [46, 139, 87])
+  const input = {
+    mountPoint: join(root, "mount"),
+    family: CLASSIC,
+    cacheDir: join(root, "cache"),
+    tracks: [track("a.mp3", "9", "A", "B", cover)],
+  }
+  const first = await writeDeviceArtwork(input)
+  const dbPath = join(root, "mount", "iPod_Control", "Artwork", "ArtworkDB")
+  await Bun.file(dbPath).unlink()
+  const second = await writeDeviceArtwork({
+    ...input,
+    priorHashes: first.hashes,
+  })
+  expect(second.wrote).toBe(true)
+  expect(second.dbidsWithArtwork.has("9")).toBe(true)
+  const { imageItems, parseArtworkdb } = await import("@omatune/device-database")
+  const bytes = new Uint8Array(await Bun.file(dbPath).arrayBuffer())
+  expect(imageItems(parseArtworkdb(bytes))).toHaveLength(1)
+})
+
 test("an unchanged cover reads the host cache and skips a second encode", async () => {
   if (!CLASSIC) {
     throw new Error("missing classic family")
@@ -105,6 +202,43 @@ function track(
   artworkBytes: Uint8Array | null,
 ) {
   return { libraryPath, dbid, albumArtist, album, artworkBytes }
+}
+
+function sof2Jpeg(): Uint8Array {
+  return Uint8Array.of(
+    0xff,
+    0xd8,
+    0xff,
+    0xc2,
+    0x00,
+    0x11,
+    0x08,
+    0x00,
+    0x08,
+    0x00,
+    0x08,
+    0x03,
+    0x01,
+    0x22,
+    0x00,
+    0x02,
+    0x11,
+    0x01,
+    0x03,
+    0x11,
+    0x01,
+  )
+}
+
+function baselineJpeg(): Uint8Array {
+  const rgba = new Uint8Array(8 * 8 * 4)
+  for (let i = 0; i < 8 * 8; i += 1) {
+    rgba[i * 4] = 30
+    rgba[i * 4 + 1] = 144
+    rgba[i * 4 + 2] = 255
+    rgba[i * 4 + 3] = 255
+  }
+  return new Uint8Array(encode({ data: rgba, width: 8, height: 8 }, 100).data)
 }
 
 function pngSolid(width: number, height: number, rgb: [number, number, number]): Uint8Array {

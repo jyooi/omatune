@@ -118,6 +118,9 @@ function formatLive(event: SyncEvent, json: boolean): string {
       `Kept: ${event.kept}`,
       `Skipped: ${event.skipped}`,
     ]
+    for (const skip of event.artworkSkipped) {
+      lines.push(`Skipped-for-artwork ${skip.path}: ${skip.reason}`)
+    }
     if (event.ejected) {
       lines.push("Safe to unplug")
     }
@@ -143,6 +146,9 @@ function renderEvents(events: ReadonlyArray<SyncEvent>, json: boolean, ejected: 
       lines.push(`Removed: ${event.removed}`)
       lines.push(`Kept: ${event.kept}`)
       lines.push(`Skipped: ${event.skipped}`)
+      for (const skip of event.artworkSkipped) {
+        lines.push(`Skipped-for-artwork ${skip.path}: ${skip.reason}`)
+      }
     }
   }
   if (ejected) {

@@ -11,7 +11,13 @@ import {
   type FamilyRecord,
 } from "@omatune/device-database"
 import { ARTWORK_DIR, ARTWORKDB, writeFileAtomic } from "./device-fs.ts"
-import { decodeEmbeddedImage, resizeRgba, rgbaToRgb888 } from "./image.ts"
+import {
+  decodeEmbeddedImage,
+  resizeRgba,
+  rgbaToRgb888,
+  type DecodeImageFailure,
+  type ImageRgba,
+} from "./image.ts"
 import type { Ledger } from "./ledger.ts"
 import { artworkHashOf } from "./plan.ts"
 import type { SelectedTrack } from "./rules.ts"
@@ -28,16 +34,24 @@ export type ArtworkTrack = {
   readonly artworkBytes: Uint8Array | null
 }
 
+export type ArtworkSkip = {
+  readonly path: string
+  readonly reason: DecodeImageFailure["reason"]
+}
+
 export type ArtworkWriteInput = {
   readonly mountPoint: string
   readonly family: FamilyRecord
   readonly tracks: ReadonlyArray<ArtworkTrack>
   readonly cacheDir: string
+  readonly priorHashes?: ReadonlyMap<string, string | null>
 }
 
 export type ArtworkWriteResult = {
   readonly dbidsWithArtwork: ReadonlySet<string>
   readonly hashes: ReadonlyMap<string, string | null>
+  readonly skipped: ReadonlyArray<ArtworkSkip>
+  readonly wrote: boolean
 }
 
 export function artworkCacheDir(env: NodeJS.ProcessEnv = process.env): string {
@@ -76,12 +90,21 @@ export async function writeDeviceArtwork(input: ArtworkWriteInput): Promise<Artw
   for (const track of input.tracks) {
     hashes.set(track.libraryPath, artworkHashOf(track.artworkBytes))
   }
+  const skipped: ArtworkSkip[] = []
   const rows = artworkFormatRows[input.family.family] ?? []
   if (!input.family.colourScreen || rows.length === 0) {
-    return { dbidsWithArtwork: new Set(), hashes }
+    return { dbidsWithArtwork: new Set(), hashes, skipped, wrote: false }
+  }
+  if (
+    input.priorHashes &&
+    !hashesDiffer(hashes, input.priorHashes) &&
+    !(await artworkFilesMissing(input.mountPoint, rows, hashes))
+  ) {
+    return { dbidsWithArtwork: new Set(), hashes, skipped, wrote: false }
   }
   const groups = albumGroups(input.tracks)
   const dbidsWithArtwork = new Set<string>()
+  const failed = new Set<string>()
   const images: Array<{
     dbid: bigint
     thumbs: Array<{
@@ -100,11 +123,28 @@ export async function writeDeviceArtwork(input: ArtworkWriteInput): Promise<Artw
     ithmb.set(row.id, [])
   }
   for (const group of groups) {
-    const source = group.source
-    if (!source) {
-      continue
+    let blocks: Map<number, Uint8Array> | null = null
+    for (const track of group.tracks) {
+      const bytes = track.artworkBytes
+      if (!bytes || bytes.byteLength === 0) {
+        continue
+      }
+      const decoded = decodeEmbeddedImage(bytes)
+      if (!decoded.ok) {
+        skipped.push({ path: track.libraryPath, reason: decoded.reason })
+        failed.add(track.libraryPath)
+        continue
+      }
+      if (!blocks) {
+        const encoded = await encodeAlbum(bytes, rows, input.cacheDir, decoded.image)
+        if (!encoded.ok) {
+          skipped.push({ path: track.libraryPath, reason: encoded.reason })
+          failed.add(track.libraryPath)
+          continue
+        }
+        blocks = encoded.blocks
+      }
     }
-    const blocks = await encodeAlbum(source, rows, input.cacheDir)
     if (!blocks) {
       continue
     }
@@ -125,6 +165,9 @@ export async function writeDeviceArtwork(input: ArtworkWriteInput): Promise<Artw
     }
     for (const track of group.tracks) {
       if (!track.artworkBytes || track.artworkBytes.byteLength === 0) {
+        continue
+      }
+      if (failed.has(track.libraryPath)) {
         continue
       }
       dbidsWithArtwork.add(track.dbid)
@@ -159,12 +202,11 @@ export async function writeDeviceArtwork(input: ArtworkWriteInput): Promise<Artw
     }
     await writeFileAtomic(join(artworkRoot, fileNameOf(row.id)), concat(blocks))
   }
-  return { dbidsWithArtwork, hashes }
+  return { dbidsWithArtwork, hashes, skipped, wrote: true }
 }
 
 type AlbumGroup = {
   readonly key: string
-  readonly source: Uint8Array | null
   readonly tracks: ReadonlyArray<ArtworkTrack>
 }
 
@@ -182,14 +224,7 @@ function albumGroups(tracks: ReadonlyArray<ArtworkTrack>): AlbumGroup[] {
   const groups: AlbumGroup[] = []
   for (const [key, list] of buckets) {
     list.sort((left, right) => left.libraryPath.localeCompare(right.libraryPath))
-    let source: Uint8Array | null = null
-    for (const track of list) {
-      if (track.artworkBytes && track.artworkBytes.byteLength > 0) {
-        source = track.artworkBytes
-        break
-      }
-    }
-    groups.push({ key, source, tracks: list })
+    groups.push({ key, tracks: list })
   }
   groups.sort((left, right) => {
     const a = left.tracks[0]?.libraryPath ?? left.key
@@ -199,11 +234,16 @@ function albumGroups(tracks: ReadonlyArray<ArtworkTrack>): AlbumGroup[] {
   return groups
 }
 
+type EncodedAlbum =
+  | { readonly ok: true; readonly blocks: Map<number, Uint8Array> }
+  | DecodeImageFailure
+
 async function encodeAlbum(
   bytes: Uint8Array,
   rows: ReadonlyArray<ArtworkFormatRow>,
   cacheDir: string,
-): Promise<Map<number, Uint8Array> | null> {
+  image?: ImageRgba,
+): Promise<EncodedAlbum> {
   const hash = createHash("sha256").update(bytes).digest("hex")
   const dir = join(cacheDir, hash)
   const cached = new Map<number, Uint8Array>()
@@ -218,22 +258,61 @@ async function encodeAlbum(
     cached.set(row.id, new Uint8Array(await Bun.file(file).arrayBuffer()))
   }
   if (!missing) {
-    return cached
+    return { ok: true, blocks: cached }
   }
-  const decoded = decodeEmbeddedImage(bytes)
-  if (!decoded.ok) {
-    return null
+  let decodedImage = image
+  if (!decodedImage) {
+    const decoded = decodeEmbeddedImage(bytes)
+    if (!decoded.ok) {
+      return decoded
+    }
+    decodedImage = decoded.image
   }
   await mkdir(dir, { recursive: true })
   const blocks = new Map<number, Uint8Array>()
   for (const row of rows) {
-    const resized = resizeRgba(decoded.image, row.width, row.height)
+    const resized = resizeRgba(decodedImage, row.width, row.height)
     const rgb = rgbaToRgb888(resized.rgba)
     const block = rgb888ToRgb565Le(rgb, row.width, row.height, row.blockBytes)
     blocks.set(row.id, block)
     await writeFileAtomic(join(dir, `${row.id}.rgb565`), block)
   }
-  return blocks
+  return { ok: true, blocks }
+}
+
+function hashesDiffer(
+  current: ReadonlyMap<string, string | null>,
+  prior: ReadonlyMap<string, string | null>,
+): boolean {
+  if (current.size !== prior.size) {
+    return true
+  }
+  for (const [path, hash] of current) {
+    if (prior.get(path) !== hash) {
+      return true
+    }
+  }
+  return false
+}
+
+async function artworkFilesMissing(
+  mountPoint: string,
+  rows: ReadonlyArray<ArtworkFormatRow>,
+  hashes: ReadonlyMap<string, string | null>,
+): Promise<boolean> {
+  if (!(await Bun.file(join(mountPoint, ARTWORKDB)).exists())) {
+    return true
+  }
+  const hasBytes = [...hashes.values()].some((hash) => hash !== null)
+  if (!hasBytes) {
+    return false
+  }
+  for (const row of rows) {
+    if (!(await Bun.file(join(mountPoint, ARTWORK_DIR, fileNameOf(row.id))).exists())) {
+      return true
+    }
+  }
+  return false
 }
 
 function ithmbName(formatId: number): string {
