@@ -800,6 +800,50 @@ path = "tone-suite/03-steady.mp3"
   expect(await Bun.file(join(volume(fake), "iPod_Control", "omatune.syncing")).exists()).toBe(false)
 })
 
+test("disk full leaves iTunesDB reserve after Artwork would not fit", async () => {
+  const dir = await makeDir("omatune-sync-art-full-")
+  const fake = await makeDir("omatune-sync-fake-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "tone-suite/01-pregap.mp3"
+
+[[include]]
+path = "tone-suite/02-postgap.mp3"
+
+[[include]]
+path = "tone-suite/03-steady.mp3"
+`,
+  )
+  const first = (await stat(join(LIBRARY, "tone-suite/01-pregap.mp3"))).size
+  await emptyClassic(fake, first + itunesdbReserveBytes(3) + 100)
+  const result = await sync(dir, fake, ["--yes", "--no-eject", "--json"])
+  expect(result.code).toBe(2)
+  expect(result.stderr).toContain("Device is full.")
+  const events = jsonLines(result.stdout)
+  const report = events.find((event) => event.type === "report") as
+    | {
+        added?: number
+        skipped?: number
+        artworkSkipped?: Array<{ path: string; reason: string }>
+      }
+    | undefined
+  expect(report?.added).toBe(1)
+  expect(report?.skipped).toBe(2)
+  expect(report?.artworkSkipped?.some((skip) => skip.reason === "disk_full")).toBe(true)
+  const dbPath = join(volume(fake), "iPod_Control", "iTunes", "iTunesDB")
+  const tracks = readItunesdbTracks(new Uint8Array(await Bun.file(dbPath).arrayBuffer()))
+  expect(tracks).toHaveLength(1)
+  expect(tracks[0]?.hasArtwork).toBe(false)
+  expect(await Bun.file(join(volume(fake), "iPod_Control", "Artwork", "ArtworkDB")).exists()).toBe(
+    false,
+  )
+  expect(await Bun.file(join(volume(fake), "iPod_Control", "omatune.syncing")).exists()).toBe(false)
+})
+
 test("iTunesDB reserve skips the last add and still commits", async () => {
   const dir = await makeDir("omatune-sync-reserve-")
   const fake = await makeDir("omatune-sync-fake-")

@@ -55,6 +55,26 @@ test("writes one ArtworkDB row per Track with Artwork and skips the rest", async
   }
 })
 
+test("a tight space budget skips Artwork with disk_full and writes no files", async () => {
+  if (!CLASSIC) {
+    throw new Error("missing classic family")
+  }
+  const root = await mkdtemp(join(tmpdir(), "omatune-art-full-"))
+  const result = await writeDeviceArtwork({
+    mountPoint: join(root, "mount"),
+    family: CLASSIC,
+    cacheDir: join(root, "cache"),
+    spaceRemaining: 100,
+    tracks: [track("tone-suite/01-pregap.mp3", "1", "Bjork", "Tone Suite", pngSolid(4, 4, [196, 30, 58]))],
+  })
+  expect(result.wrote).toBe(false)
+  expect(result.dbidsWithArtwork.size).toBe(0)
+  expect(result.skipped).toEqual([{ path: "tone-suite/01-pregap.mp3", reason: "disk_full" }])
+  expect(await Bun.file(join(root, "mount", "iPod_Control", "Artwork", "ArtworkDB")).exists()).toBe(
+    false,
+  )
+})
+
 test("a family without a colour screen writes no Artwork", async () => {
   if (!MINI) {
     throw new Error("missing mini family")

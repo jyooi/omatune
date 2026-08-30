@@ -523,7 +523,12 @@ async function runPipeline(
     const now = await Effect.runPromise(platform.now)
     const nextLedger = buildNextLedger(ctx, hashes, now, readBack.playData, presentAdds)
     await emitPhase(emit, "artwork", 0, 0, 0, 0, null)
-    const artwork = await runArtwork(ctx, nextLedger)
+    const liveAfterCopy = await deviceFreeBytes(platform, ctx.serial)
+    const artworkBudget =
+      liveAfterCopy === null
+        ? spaceRemaining
+        : Math.min(spaceRemaining, Math.max(0, liveAfterCopy - dbReserve))
+    const artwork = await runArtwork(ctx, nextLedger, undefined, artworkBudget)
     artworkSkipped = artwork.skipped
     const artworkDbids = artwork.dbidsWithArtwork
 
@@ -621,6 +626,7 @@ export async function runArtwork(
   ctx: SyncContext,
   ledger: Ledger,
   priorHashes?: ReadonlyMap<string, string | null>,
+  spaceRemaining?: number,
 ): Promise<ArtworkWriteResult> {
   const selectedByPath = new Map(ctx.selected.map((track) => [track.relativePath, track]))
   return writeDeviceArtwork({
@@ -629,6 +635,7 @@ export async function runArtwork(
     tracks: tracksForArtwork(ledger, selectedByPath),
     cacheDir: artworkCacheDir(),
     priorHashes,
+    spaceRemaining,
   })
 }
 
