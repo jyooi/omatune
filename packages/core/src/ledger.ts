@@ -1,4 +1,5 @@
-import { join } from "node:path"
+import { mkdir, rename } from "node:fs/promises"
+import { dirname, join } from "node:path"
 import { Either, ParseResult, Schema } from "effect"
 
 export type LedgerEntry = {
@@ -103,4 +104,16 @@ export async function loadLedger(dir: string, serial: string): Promise<Outcome<L
   }
   const text = await Bun.file(file).text()
   return parseLedgerText(file, text)
+}
+
+export function serializeLedger(ledger: Ledger): string {
+  return `${JSON.stringify(ledger, null, 2)}\n`
+}
+
+export async function writeLedgerAtomic(dir: string, ledger: Ledger): Promise<void> {
+  const file = ledgerPath(dir, ledger.serial)
+  const tmp = `${file}.tmp`
+  await mkdir(dirname(file), { recursive: true })
+  await Bun.write(tmp, serializeLedger(ledger))
+  await rename(tmp, file)
 }

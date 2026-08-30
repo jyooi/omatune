@@ -24,7 +24,7 @@ export type {
   LoadConfigResult,
   SelectionRule,
 } from "./config.ts"
-export { loadLedger, ledgerPath, parseLedgerText } from "./ledger.ts"
+export { loadLedger, ledgerPath, parseLedgerText, serializeLedger, writeLedgerAtomic } from "./ledger.ts"
 export type { Ledger, LedgerEntry, LedgerIssue } from "./ledger.ts"
 export {
   albumIdentity,
@@ -43,8 +43,19 @@ export {
   hashesForAdds,
   planKind,
   resolveForceModel,
+  runPool,
   sha256File,
 } from "./plan.ts"
 export type { PlanKind, PlannedTrack, SyncPlan } from "./plan.ts"
 export { parseId3, readLameGapless, readTrackTags } from "./tags.ts"
 export type { Codec, Gapless, TrackTags } from "./tags.ts"
+export { wipeIpodControl } from "./device-fs.ts"
+export { runSync, Sync, SyncLive, SyncError, runReadBack, runArtwork } from "./sync.ts"
+export type {
+  SyncEvent,
+  SyncPhase,
+  SyncProgress,
+  SyncReport,
+  SyncRequest,
+} from "./sync.ts"
+export { colonPath, buildItunesdb, readItunesdbTracks } from "./itunesdb-write.ts"

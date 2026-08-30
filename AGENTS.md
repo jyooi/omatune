@@ -33,6 +33,7 @@ Workspace packages live in `packages/`.
 `Platform` in `packages/platform` is the only hardware seam.
 Config and Selection files load in `packages/core/src/config.ts`.
 The scanner, Rule evaluation, Ledger reader, and planner live in `packages/core`.
+The Sync service lives in `packages/core/src/sync.ts`.
 
 ## Maintaining this file
 

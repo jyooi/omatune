@@ -32,8 +32,9 @@ export async function ownerStateFor(info: DeviceInfo): Promise<OwnerState> {
   }
   const itunes = join(info.mountPoint, "iPod_Control", "iTunes")
   const hasDb = await pathExists(join(itunes, "iTunesDB"))
-  const hasMarker = await pathExists(join(itunes, "Omatune"))
-  if (hasDb && hasMarker) {
+  const hasLegacy = await pathExists(join(itunes, "Omatune"))
+  const hasJson = await pathExists(join(info.mountPoint, "iPod_Control", "omatune.json"))
+  if (hasDb && (hasLegacy || hasJson)) {
     return "omatune"
   }
   if (hasDb) {
