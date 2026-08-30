@@ -1,0 +1,9 @@
+CC0 1.0 Universal
+
+This Verification Library is in the public domain under CC0 1.0.
+Copy the files.
+Change the files.
+Share the files.
+You need no permission.
+
+Full legal text: https://creativecommons.org/publicdomain/zero/1.0/legalcode
