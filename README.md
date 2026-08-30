@@ -44,7 +44,7 @@ Build every package with `bun run build`.
 
 `packages/device-database` holds the model table.
 
-`packages/platform` holds the Platform service, the fake Layer, and the stub Layer.
+`packages/platform` holds the Platform service, the fake Layer, the Linux Layer, and the stub Layer.
 
 `packages/core` holds Device reports, exit codes, and config files.
 

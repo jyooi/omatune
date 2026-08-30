@@ -1,5 +1,5 @@
 import { ExitCode, listDeviceReports } from "@omatune/core"
-import { fakeLayer, stubLayer, type Platform } from "@omatune/platform"
+import { fakeLayer, linuxLayer, stubLayer, type Platform } from "@omatune/platform"
 import { runTui } from "@omatune/tui"
 import { Effect, type Layer } from "effect"
 import { parseArgv } from "./flags.ts"
@@ -22,6 +22,9 @@ function defaultLayer(): Layer.Layer<Platform> {
   const fakeRoot = process.env.OMATUNE_FAKE_PLATFORM
   if (fakeRoot) {
     return fakeLayer(fakeRoot)
+  }
+  if (process.platform === "linux") {
+    return linuxLayer
   }
   return stubLayer
 }
