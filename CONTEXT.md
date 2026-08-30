@@ -52,3 +52,7 @@ _Avoid_: sample, test data, golden file (a golden file is one use of a Fixture)
 **Scrub**:
 Rewriting a Private Fixture so no personal, identifying, or third-party content remains while every byte offset holds.
 _Avoid_: anonymise, redact, sanitise
+
+**Verification Library**:
+The fixed public set of CC0 Tracks a reporter syncs before running the Device Checklist, so every expected value in the checklist is a constant.
+_Avoid_: test library, sample library, demo music
