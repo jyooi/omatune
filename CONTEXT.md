@@ -48,3 +48,23 @@ _Avoid_: stats, listening history, scrobbles
 **Read-back**:
 Copying Play Data from the Device to a file on the host before a Sync changes the Device.
 _Avoid_: reverse sync, import
+
+**Ledger**:
+The host-side record, one per Device, of which Tracks the Device holds and how each was identified at the last Sync.
+_Avoid_: manifest, cache, index, state file
+
+**Sync Plan**:
+The list of Tracks a Sync will add, remove, keep, and skip, with the space it needs, shown before anything changes.
+_Avoid_: diff, preview, dry run
+
+**Commit point**:
+The single moment in a Sync after which the Device Database describes the new content; everything before it can be redone.
+_Avoid_: transaction, checkpoint
+
+**Adoption**:
+A Sync that rebuilds a missing Ledger from a Device omatune wrote earlier, instead of wiping it.
+_Avoid_: import, recovery, re-sync
+
+**Skipped**:
+A Track the Selection matches that a Sync leaves off the Device, with a stated reason.
+_Avoid_: error, failed, ignored
