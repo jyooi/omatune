@@ -2,7 +2,7 @@ import { expect, test } from "bun:test"
 import { mkdtemp } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { fakeLayer, writeFakeDevice } from "@omatune/platform"
+import { fakeLayer, stubLayer, writeFakeDevice } from "@omatune/platform"
 import { runMain } from "./main.ts"
 
 async function makeRoot(): Promise<string> {
@@ -99,8 +99,11 @@ test("sync is refused before change", async () => {
   expect(result.stderr).toContain("not implemented")
 })
 
-test("bare command opens the TUI placeholder", async () => {
-  const result = await runMain([])
+test("bare command refuses when config is missing", async () => {
+  const home = await makeRoot()
+  const env: NodeJS.ProcessEnv = { ...process.env, HOME: home, XDG_CONFIG_HOME: `${home}/.config` }
+  delete env.OMATUNE_CONFIG
+  const result = await runMain([], stubLayer, env)
   expect(result.code).toBe(1)
-  expect(result.stderr).toContain("TUI is not implemented")
+  expect(result.stderr).toContain("Wrote starter config")
 })

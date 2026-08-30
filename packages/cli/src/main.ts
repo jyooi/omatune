@@ -41,8 +41,12 @@ export async function runMain(
   }
 
   if (parsed.subcommand === null) {
-    const tui = runTui()
-    return { code: tui.code, stdout: tui.stdout, stderr: tui.stderr }
+    return runTui({
+      config: parsed.config,
+      device: parsed.device,
+      layer,
+      env,
+    })
   }
 
   if (parsed.subcommand === "status") {

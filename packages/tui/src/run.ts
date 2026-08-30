@@ -1,0 +1,134 @@
+import {
+  ExitCode,
+  formatConfigIssue,
+  listDeviceReports,
+  loadConfigDir,
+  loadLedger,
+  loadSelection,
+  resolveConfigDir,
+  scanLibrary,
+  writeSelection,
+  type AppSelection,
+  type DeviceReport,
+} from "@omatune/core"
+import { createCliRenderer, SystemClock, type CliRenderer, type CliRendererConfig } from "@opentui/core"
+import type { Platform } from "@omatune/platform"
+import { Effect, type Layer } from "effect"
+import { palette } from "./palette.ts"
+import { attachSelectionScreen } from "./selection-screen.ts"
+
+export type TuiResult = {
+  code: 0 | 1 | 2
+  stdout: string
+  stderr: string
+}
+
+export type RunTuiInput = {
+  readonly config?: string | null
+  readonly device?: string | null
+  readonly layer: Layer.Layer<Platform>
+  readonly env?: NodeJS.ProcessEnv
+  readonly createRenderer?: (config: CliRendererConfig) => Promise<CliRenderer>
+}
+
+export async function runTui(input: RunTuiInput): Promise<TuiResult> {
+  const env = input.env ?? process.env
+  const dir = resolveConfigDir({
+    xdgConfigHome: env.XDG_CONFIG_HOME,
+    home: env.HOME,
+    flag: input.config,
+    envValue: env.OMATUNE_CONFIG,
+  })
+  const loaded = await loadConfigDir(dir)
+  if (loaded.kind === "created") {
+    return refused(`Wrote starter config ${loaded.path}. Set library and run again.`)
+  }
+  if (loaded.kind === "issue") {
+    return refused(formatConfigIssue(loaded.issue))
+  }
+  const reports = await Effect.runPromise(listDeviceReports.pipe(Effect.provide(input.layer)))
+  const wanted = input.device ? input.device.toLowerCase() : null
+  const report = pickReport(reports, wanted)
+  if (!report) {
+    if (wanted) {
+      return refused(`Device ${input.device} is not attached.`)
+    }
+    if (reports.length === 0) {
+      return refused("No Device attached.")
+    }
+    return refused("Pass --device or attach one Device.")
+  }
+  const named = loaded.config.devices.find((entry) => entry.serial === report.serial)
+  const selectionResult = await loadSelection(dir, report.serial)
+  if (!selectionResult.ok) {
+    return refused(formatConfigIssue(selectionResult.issue))
+  }
+  const ledgerResult = await loadLedger(dir, report.serial)
+  if (!ledgerResult.ok) {
+    return refused(`${ledgerResult.issue.file}:${ledgerResult.issue.line}: ${ledgerResult.issue.reason}`)
+  }
+  const files = await scanLibrary(loaded.config.library)
+  const createRenderer = input.createRenderer ?? createCliRenderer
+  const clock = new SystemClock()
+  const program = Effect.scoped(
+    Effect.gen(function* () {
+      const renderer = yield* Effect.acquireRelease(
+        Effect.promise(() =>
+          createRenderer({
+            exitOnCtrlC: false,
+            exitSignals: [],
+            useMouse: true,
+            consoleMode: "disabled",
+            clock,
+            backgroundColor: palette.background,
+          }),
+        ),
+        (instance) => Effect.sync(() => instance.destroy()),
+      )
+      return yield* Effect.async<TuiResult>((resume) => {
+        attachSelectionScreen(
+          renderer,
+          {
+            libraryRoot: loaded.config.library,
+            deviceName: named?.name ?? report.serial,
+            serial: report.serial,
+            tier: report.supportTier ?? "Unknown",
+            freeBytes: report.freeSpaceBytes,
+            tracksOnDevice: ledgerResult.value?.tracks.length ?? 0,
+            files,
+            selection: selectionResult.value,
+            ledger: ledgerResult.value,
+            writeSelection: (next: AppSelection) => writeSelection(dir, report.serial, next),
+          },
+          {
+            clock,
+            onQuit: (code) => resume(Effect.succeed({ code, stdout: "", stderr: "" })),
+          },
+        )
+      })
+    }),
+  )
+  try {
+    return await Effect.runPromise(program)
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause)
+    return refused(message)
+  }
+}
+
+function pickReport(
+  reports: ReadonlyArray<DeviceReport>,
+  wanted: string | null,
+): DeviceReport | undefined {
+  if (wanted) {
+    return reports.find((entry) => entry.serial === wanted)
+  }
+  if (reports.length === 1) {
+    return reports[0]
+  }
+  return undefined
+}
+
+function refused(message: string): TuiResult {
+  return { code: ExitCode.RefusedBeforeChange, stdout: "", stderr: `${message}\n` }
+}
