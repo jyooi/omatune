@@ -1,0 +1,7 @@
+export type { DeviceInfo } from "./device-info.ts"
+export { DeviceNotFound } from "./errors.ts"
+export { fakeLayer, makeFake, writeFakeDevice } from "./fake.ts"
+export type { FakeDeviceSpec, FakeOwner } from "./fake.ts"
+export { Platform } from "./platform.ts"
+export type { PlatformApi } from "./platform.ts"
+export { stubLayer } from "./stub.ts"

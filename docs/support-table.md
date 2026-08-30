@@ -1,7 +1,7 @@
 # Support table
 
 Source of truth for the Support Tier of every iPod family.
-README and the v1 spec render this table; edit it here only.
+Edit this file only.
 A row moves to Verified on one passing Verification Report and back to Expected on a failing one that the maintainer cannot fix.
 
 | Family | Apple models | libgpod key | Tier | Verified by | Notes |
