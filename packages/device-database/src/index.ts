@@ -6,6 +6,11 @@ export {
 } from "./model/lookup.ts"
 export { modelTable } from "./model/generated.ts"
 export { parseSupportTable } from "./model/parse-support-table.ts"
+export {
+  artworkFormatRow,
+  artworkFormatRows,
+} from "./model/format-table.ts"
+export type { ArtworkFormatRow } from "./model/format-table.ts"
 export type {
   FamilyFormat,
   FamilyRecord,
@@ -63,3 +68,46 @@ export {
   type PlayData,
   type Track,
 } from "./track.ts";
+export {
+  PlayCountsParseError,
+  isPlayCountsParseError,
+  parsePlayCounts,
+  playCountsForTracks,
+  serializePlayCounts,
+  type ParsePlayCountsResult,
+  type PlayCounts,
+  type PlayCountsEntry,
+  type PlayCountsParseReason,
+} from "./play-counts.ts";
+export {
+  artworkFiles,
+  fileItems,
+  imageItems,
+  mhifFormatId,
+  mhifImageSize,
+  mhiiDbid,
+  parseArtworkdb,
+  parseMhfd,
+  parseMhif,
+  parseMhii,
+  parseMhli,
+  parseMhlf,
+  parseMhni,
+  serializeArtworkdb,
+  serializeMhfd,
+  serializeMhif,
+  serializeMhii,
+  serializeMhli,
+  serializeMhlf,
+  serializeMhni,
+  thumbnailsOf,
+  type ArtworkFile,
+  type ArtworkThumb,
+  type Artworkdb,
+} from "./artwork.ts";
+export {
+  extractThumbnailPpm,
+  rgb565LeToRgb888,
+  splitIthmbBlocks,
+  writePpm,
+} from "./ithmb.ts";

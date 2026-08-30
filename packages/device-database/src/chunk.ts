@@ -7,7 +7,7 @@ import {
 } from "./bytes.ts";
 import { ItunesdbParseError } from "./error.ts";
 
-export const LIST_IDS = new Set(["mhlt", "mhlp", "mhla"]);
+export const LIST_IDS = new Set(["mhlt", "mhlp", "mhla", "mhli", "mhlf"]);
 
 export type ChunkId =
   | "mhbd"
