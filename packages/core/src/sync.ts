@@ -310,19 +310,20 @@ async function runPipeline(
   platform: PlatformApi,
   emit: (event: SyncEvent) => Promise<void>,
 ): Promise<void> {
-  const noop = ctx.plan.add.length === 0 && ctx.plan.remove.length === 0
   await emitPhase(emit, "read-back", 0, 0, 0, 0, null)
   // HUF-269 Read-back runs here, before delete.
   await runReadBack(ctx)
+  const named = new Set([...ctx.plan.keep, ...ctx.plan.add].map((track) => track.devicePath))
+  const music = await listMusicFiles(ctx.mountPoint)
+  const extra = music.filter((path) => !named.has(path))
+  const noop =
+    ctx.plan.add.length === 0 && ctx.plan.remove.length === 0 && extra.length === 0
   if (!noop) {
     const marker = join(ctx.mountPoint, SYNCING_MARKER)
     await writeFileAtomic(
       marker,
       `${JSON.stringify({ serial: ctx.serial, startedAt: await Effect.runPromise(platform.now) })}\n`,
     )
-    const named = new Set([...ctx.plan.keep, ...ctx.plan.add].map((track) => track.devicePath))
-    const music = await listMusicFiles(ctx.mountPoint)
-    const extra = music.filter((path) => !named.has(path))
     const deletes = uniquePaths([
       ...ctx.plan.remove.map((track) => track.devicePath),
       ...extra,

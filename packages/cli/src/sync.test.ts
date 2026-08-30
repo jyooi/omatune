@@ -160,6 +160,29 @@ path = "tone-suite"
   }
 })
 
+test("second Sync deletes Music files that no Ledger entry names", async () => {
+  const dir = await makeDir("omatune-sync-orphan-")
+  const fake = await makeDir("omatune-sync-fake-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "tone-suite/01-pregap.mp3"
+`,
+  )
+  await emptyClassic(fake)
+  const first = await sync(dir, fake, ["--yes", "--no-eject"])
+  expect(first.code).toBe(0)
+  const orphan = join(volume(fake), "iPod_Control", "Music", "F00", "orphan.mp3")
+  await mkdir(join(volume(fake), "iPod_Control", "Music", "F00"), { recursive: true })
+  await writeFile(orphan, "not-in-ledger")
+  const second = await sync(dir, fake, ["--yes", "--no-eject"])
+  expect(second.code).toBe(0)
+  expect(await Bun.file(orphan).exists()).toBe(false)
+})
+
 test("add and remove one Album, then iTunesDB lists the new Tracks in order", async () => {
   const dir = await makeDir("omatune-sync-album-")
   const fake = await makeDir("omatune-sync-fake-")
