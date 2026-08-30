@@ -13,6 +13,9 @@ export type LedgerEntry = {
   readonly writtenRating: number | null
   readonly lastPlayed: number | null
   readonly bookmark: number | null
+  readonly writtenPlayCount?: number
+  readonly writtenSkipCount?: number
+  readonly writtenLastSkipped?: number
 }
 
 export type Ledger = {
@@ -44,6 +47,9 @@ const EntrySchema = Schema.Struct({
   writtenRating: Schema.NullOr(Schema.Number),
   lastPlayed: Schema.NullOr(Schema.Number),
   bookmark: Schema.NullOr(Schema.Number),
+  writtenPlayCount: Schema.optional(Schema.Number),
+  writtenSkipCount: Schema.optional(Schema.Number),
+  writtenLastSkipped: Schema.optional(Schema.Number),
 })
 
 const LedgerSchema = Schema.Struct({

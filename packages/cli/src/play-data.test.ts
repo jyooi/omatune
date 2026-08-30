@@ -184,6 +184,67 @@ test("Play Counts round-trip across two Devices and merge counts", async () => {
   expect(libraryAfter.size).toBe(libraryStat.size)
 })
 
+test("second Device writes host Play Data on a no-change Sync", async () => {
+  const dir = await makeDir("omatune-play-second-")
+  const fake = await makeDir("omatune-play-fake-")
+  const dataHome = await makeDir("omatune-play-data-")
+  await writeConfig(dir)
+  await writeSelection(dir, SERIAL_A)
+  await writeSelection(dir, SERIAL_B)
+  await emptyClassic(fake, SERIAL_A)
+  await emptyClassic(fake, SERIAL_B)
+  expect((await sync(dir, fake, dataHome, SERIAL_A)).code).toBe(0)
+  await writePlayCounts(fake, SERIAL_A, [
+    { playCount: 2, skipCount: 1, rating: 80, lastPlayed: 100, lastSkipped: 90, bookmark: 7 },
+  ])
+  expect((await sync(dir, fake, dataHome, SERIAL_A)).code).toBe(0)
+  expect((await sync(dir, fake, dataHome, SERIAL_B)).code).toBe(0)
+  await writePlayCounts(fake, SERIAL_A, [
+    { playCount: 3, skipCount: 0, rating: 80, lastPlayed: 100, lastSkipped: 90, bookmark: 7 },
+  ])
+  expect((await sync(dir, fake, dataHome, SERIAL_A)).code).toBe(0)
+  const secondB = await sync(dir, fake, dataHome, SERIAL_B)
+  expect(secondB.code).toBe(0)
+  const bTracks = readItunesdbTracks(
+    new Uint8Array(
+      await Bun.file(join(volume(fake, SERIAL_B), "iPod_Control", "iTunes", "iTunesDB")).arrayBuffer(),
+    ),
+  )
+  expect(bTracks[0]?.playData).toEqual({
+    playCount: 5,
+    skipCount: 1,
+    rating: 80,
+    lastPlayed: 100,
+    lastSkipped: 90,
+    bookmark: 7,
+  })
+})
+
+test("same Play Counts bytes do not merge twice", async () => {
+  const dir = await makeDir("omatune-play-retry-")
+  const fake = await makeDir("omatune-play-fake-")
+  const dataHome = await makeDir("omatune-play-data-")
+  await writeConfig(dir)
+  await writeSelection(dir, SERIAL_A)
+  await emptyClassic(fake, SERIAL_A)
+  expect((await sync(dir, fake, dataHome, SERIAL_A)).code).toBe(0)
+  const entries = [
+    { playCount: 2, skipCount: 1, rating: 80, lastPlayed: 100, lastSkipped: 90, bookmark: 7 },
+  ]
+  const bytes = encodePlayCounts(entries)
+  const playCounts = join(volume(fake, SERIAL_A), "iPod_Control", "iTunes", "Play Counts")
+  await Bun.write(playCounts, bytes)
+  expect((await sync(dir, fake, dataHome, SERIAL_A)).code).toBe(0)
+  await Bun.write(playCounts, bytes)
+  expect((await sync(dir, fake, dataHome, SERIAL_A)).code).toBe(0)
+  const host = JSON.parse(await Bun.file(playDataPath(join(dataHome, "omatune"))).text()) as {
+    tracks: Record<string, { playCount: number; skipCount: number }>
+  }
+  const entry = Object.values(host.tracks)[0]
+  expect(entry?.playCount).toBe(2)
+  expect(entry?.skipCount).toBe(1)
+})
+
 test("Echo keeps rating, last played, and bookmark written by the last Sync", async () => {
   const dir = await makeDir("omatune-play-echo-")
   const fake = await makeDir("omatune-play-fake-")

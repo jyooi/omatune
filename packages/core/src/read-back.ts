@@ -12,7 +12,9 @@ import { ITUNESDB, PLAY_COUNTS, pathExists } from "./device-fs.ts"
 import type { Ledger, LedgerEntry } from "./ledger.ts"
 import type { PlanKind } from "./plan.ts"
 import {
+  hashPlayCountsBytes,
   mergePlayDataEntry,
+  withMergedPlayCounts,
   withPlayDataEntry,
   type PlayDataFile,
   type WrittenEcho,
@@ -141,6 +143,16 @@ export async function runPlayDataReadBack(
     }
   }
   const bytes = new Uint8Array(await Bun.file(playCountsPath).arrayBuffer())
+  const digest = hashPlayCountsBytes(bytes)
+  if (playData.mergedPlayCounts[request.serial] === digest) {
+    return {
+      playData,
+      consumedPlayCounts: true,
+      changed: false,
+      messages: [],
+      strictFail: null,
+    }
+  }
   const parsed = parsePlayCounts(bytes)
   if (!parsed.ok) {
     const failed = await copyCorruptPlayCounts(request, bytes)
@@ -160,7 +172,7 @@ export async function runPlayDataReadBack(
   if (!(await pathExists(itunesPath))) {
     return {
       playData,
-      consumedPlayCounts: true,
+      consumedPlayCounts: false,
       changed: false,
       messages: [],
       strictFail: null,
@@ -173,7 +185,7 @@ export async function runPlayDataReadBack(
   } catch {
     return {
       playData,
-      consumedPlayCounts: true,
+      consumedPlayCounts: false,
       changed: false,
       messages: [],
       strictFail: null,
@@ -212,6 +224,9 @@ export async function runPlayDataReadBack(
     const merged = mergePlayDataEntry(next.tracks[sha256], deltaOf(entry), echoOf(ledgerEntry), path)
     next = withPlayDataEntry(next, sha256, merged)
     changed = true
+  }
+  if (changed) {
+    next = withMergedPlayCounts(next, request.serial, digest)
   }
   return {
     playData: next,

@@ -3,8 +3,8 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { serializePlayCounts, type PlayCountsEntry } from "@omatune/device-database"
-import { PLAY_COUNTS } from "./device-fs.ts"
-import { emptyPlayData } from "./play-data.ts"
+import { ITUNESDB, PLAY_COUNTS } from "./device-fs.ts"
+import { emptyPlayData, hashPlayCountsBytes } from "./play-data.ts"
 import { countPlayCountsEntries, FOREIGN_READ_BACK_SKIP, runPlayDataReadBack } from "./read-back.ts"
 
 function entry(fields: Partial<PlayCountsEntry>): PlayCountsEntry {
@@ -91,6 +91,76 @@ test("corrupt Play Counts is copied and warned", async () => {
   expect(result.messages[0]?.level).toBe("warning")
   const copy = join(dataDir, "read-back-failed", "aaaaaaaaaaaaaaaa-99.bin")
   expect(await Bun.file(copy).text()).toBe("not-mhdp")
+})
+
+test("same Play Counts digest skips merge", async () => {
+  const mount = await makeMount()
+  const dataDir = await mkdtemp(join(tmpdir(), "omatune-data-"))
+  const bytes = playCountsBytes([entry({ playCount: 4 })])
+  await Bun.write(join(mount, PLAY_COUNTS), bytes)
+  const serial = "aaaaaaaaaaaaaaaa"
+  const result = await runPlayDataReadBack(
+    {
+      kind: "normal",
+      serial,
+      mountPoint: mount,
+      dataDir,
+      ledger: null,
+      hashes: new Map(),
+      selected: [],
+      strict: false,
+      now: 1,
+    },
+    { version: 1, tracks: {}, mergedPlayCounts: { [serial]: hashPlayCountsBytes(bytes) } },
+  )
+  expect(result.consumedPlayCounts).toBe(true)
+  expect(result.changed).toBe(false)
+  expect(result.playData.tracks).toEqual({})
+})
+
+test("absent iTunesDB does not consume Play Counts", async () => {
+  const mount = await makeMount()
+  const dataDir = await mkdtemp(join(tmpdir(), "omatune-data-"))
+  await Bun.write(join(mount, PLAY_COUNTS), playCountsBytes([entry({ playCount: 1 })]))
+  const result = await runPlayDataReadBack(
+    {
+      kind: "normal",
+      serial: "aaaaaaaaaaaaaaaa",
+      mountPoint: mount,
+      dataDir,
+      ledger: null,
+      hashes: new Map(),
+      selected: [],
+      strict: false,
+      now: 1,
+    },
+    emptyPlayData(),
+  )
+  expect(result.consumedPlayCounts).toBe(false)
+  expect(result.changed).toBe(false)
+})
+
+test("unreadable iTunesDB does not consume Play Counts", async () => {
+  const mount = await makeMount()
+  const dataDir = await mkdtemp(join(tmpdir(), "omatune-data-"))
+  await Bun.write(join(mount, PLAY_COUNTS), playCountsBytes([entry({ playCount: 1 })]))
+  await writeFile(join(mount, ITUNESDB), "not-mhbd")
+  const result = await runPlayDataReadBack(
+    {
+      kind: "normal",
+      serial: "aaaaaaaaaaaaaaaa",
+      mountPoint: mount,
+      dataDir,
+      ledger: null,
+      hashes: new Map(),
+      selected: [],
+      strict: false,
+      now: 1,
+    },
+    emptyPlayData(),
+  )
+  expect(result.consumedPlayCounts).toBe(false)
+  expect(result.changed).toBe(false)
 })
 
 test("corrupt Play Counts in --strict sets strictFail", async () => {

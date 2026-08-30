@@ -53,6 +53,7 @@ import {
 import { serializeSignedLayout, tracksForDatabase } from "./itunesdb-write.ts"
 import {
   loadPlayData,
+  playDataNeedsWriteback,
   writePlayDataAtomic,
   type HostPlayData,
   type PlayDataFile,
@@ -355,6 +356,7 @@ async function runPipeline(
   const extra = music.filter((path) => !named.has(path))
   const noop =
     !readBack.consumedPlayCounts &&
+    !playDataNeedsWriteback(readBack.playData, ctx.ledger) &&
     ctx.plan.add.length === 0 &&
     ctx.plan.remove.length === 0 &&
     extra.length === 0
@@ -593,6 +595,9 @@ function buildNextLedger(
       writtenRating: host?.rating ?? 0,
       lastPlayed: host?.lastPlayed ?? 0,
       bookmark: host?.bookmark ?? 0,
+      writtenPlayCount: host?.playCount ?? 0,
+      writtenSkipCount: host?.skipCount ?? 0,
+      writtenLastSkipped: host?.lastSkipped ?? 0,
     })
   }
   return {

@@ -5,6 +5,7 @@ import { join } from "node:path"
 import {
   emptyPlayData,
   mergePlayDataEntry,
+  playDataNeedsWriteback,
   playDataPath,
   resolveDataDir,
   serializePlayData,
@@ -12,7 +13,7 @@ import {
   type HostPlayData,
 } from "./play-data.ts"
 import { fileNameHashPrefix, matchReadBackHash, slashDevicePath } from "./read-back.ts"
-import type { LedgerEntry } from "./ledger.ts"
+import type { Ledger, LedgerEntry } from "./ledger.ts"
 
 const host: HostPlayData = {
   playCount: 4,
@@ -112,14 +113,71 @@ test("writePlayDataAtomic replaces the host file", async () => {
   await writePlayDataAtomic(dir, {
     version: 1,
     tracks: { ab: { ...host } },
+    mergedPlayCounts: {},
   })
   const text = await Bun.file(playDataPath(dir)).text()
-  expect(text).toBe(serializePlayData({ version: 1, tracks: { ab: host } }))
+  expect(text).toBe(serializePlayData({ version: 1, tracks: { ab: host }, mergedPlayCounts: {} }))
   expect(JSON.parse(text).tracks.ab.playCount).toBe(4)
 })
 
 test("emptyPlayData has no Tracks", () => {
-  expect(emptyPlayData()).toEqual({ version: 1, tracks: {} })
+  expect(emptyPlayData()).toEqual({ version: 1, tracks: {}, mergedPlayCounts: {} })
+})
+
+test("playDataNeedsWriteback is true when host counts differ from the Ledger", () => {
+  const sha = "ab".repeat(32)
+  const ledger: Ledger = {
+    version: 1,
+    serial: "aaaaaaaaaaaaaaaa",
+    libraryRoot: "/lib",
+    lastCommitTime: 1,
+    tracks: [
+      {
+        libraryPath: "a/track.mp3",
+        size: 1,
+        mtime: 1,
+        sha256: sha,
+        devicePath: "iPod_Control/Music/F00/ab.mp3",
+        dbid: "1",
+        artworkHash: null,
+        writtenRating: 80,
+        lastPlayed: 100,
+        bookmark: 12,
+        writtenPlayCount: 2,
+        writtenSkipCount: 1,
+        writtenLastSkipped: 40,
+      },
+    ],
+  }
+  const written = {
+    playCount: 2,
+    skipCount: 1,
+    rating: 80,
+    lastPlayed: 100,
+    lastSkipped: 40,
+    bookmark: 12,
+    path: "a/track.mp3",
+  }
+  expect(
+    playDataNeedsWriteback(
+      {
+        version: 1,
+        tracks: { [sha]: { ...written, playCount: 5 } },
+        mergedPlayCounts: {},
+      },
+      ledger,
+    ),
+  ).toBe(true)
+  expect(
+    playDataNeedsWriteback(
+      {
+        version: 1,
+        tracks: { [sha]: written },
+        mergedPlayCounts: {},
+      },
+      ledger,
+    ),
+  ).toBe(false)
 })
 
 test("Adoption match uses the file-name hash prefix", () => {

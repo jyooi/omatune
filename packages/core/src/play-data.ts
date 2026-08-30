@@ -1,7 +1,9 @@
+import { createHash } from "node:crypto"
 import { mkdir, rename } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { serializePlayCounts, type PlayCountsEntry } from "@omatune/device-database"
 import { Either, ParseResult, Schema } from "effect"
+import type { Ledger } from "./ledger.ts"
 
 export type HostPlayData = {
   readonly playCount: number
@@ -16,6 +18,7 @@ export type HostPlayData = {
 export type PlayDataFile = {
   readonly version: 1
   readonly tracks: { readonly [sha256: string]: HostPlayData }
+  readonly mergedPlayCounts: { readonly [serial: string]: string }
 }
 
 export type PlayDataIssue = {
@@ -56,6 +59,7 @@ const EntrySchema = Schema.Struct({
 const FileSchema = Schema.Struct({
   version: Schema.Number,
   tracks: Schema.Record({ key: Schema.String, value: EntrySchema }),
+  mergedPlayCounts: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
 })
 
 export const ZERO_PLAY_DATA: HostPlayData = {
@@ -90,7 +94,28 @@ export function playDataPath(dir: string): string {
 }
 
 export function emptyPlayData(): PlayDataFile {
-  return { version: 1, tracks: {} }
+  return { version: 1, tracks: {}, mergedPlayCounts: {} }
+}
+
+export function hashPlayCountsBytes(bytes: Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex")
+}
+
+export function playDataNeedsWriteback(playData: PlayDataFile, ledger: Ledger | null): boolean {
+  for (const entry of ledger?.tracks ?? []) {
+    const host = playData.tracks[entry.sha256]
+    if (
+      (host?.playCount ?? 0) !== (entry.writtenPlayCount ?? 0) ||
+      (host?.skipCount ?? 0) !== (entry.writtenSkipCount ?? 0) ||
+      (host?.rating ?? 0) !== (entry.writtenRating ?? 0) ||
+      (host?.lastPlayed ?? 0) !== (entry.lastPlayed ?? 0) ||
+      (host?.lastSkipped ?? 0) !== (entry.writtenLastSkipped ?? 0) ||
+      (host?.bookmark ?? 0) !== (entry.bookmark ?? 0)
+    ) {
+      return true
+    }
+  }
+  return false
 }
 
 export function playDataOf(file: PlayDataFile, sha256: string): HostPlayData {
@@ -132,6 +157,19 @@ export function withPlayDataEntry(
   return {
     version: 1,
     tracks: { ...file.tracks, [sha256]: entry },
+    mergedPlayCounts: file.mergedPlayCounts,
+  }
+}
+
+export function withMergedPlayCounts(
+  file: PlayDataFile,
+  serial: string,
+  sha256: string,
+): PlayDataFile {
+  return {
+    version: 1,
+    tracks: file.tracks,
+    mergedPlayCounts: { ...file.mergedPlayCounts, [serial]: sha256 },
   }
 }
 
@@ -163,7 +201,11 @@ export function parsePlayDataText(file: string, text: string): Outcome<PlayDataF
   }
   return {
     ok: true,
-    value: { version: 1, tracks: decoded.right.tracks },
+    value: {
+      version: 1,
+      tracks: decoded.right.tracks,
+      mergedPlayCounts: decoded.right.mergedPlayCounts ?? {},
+    },
   }
 }
 
@@ -185,7 +227,14 @@ export function serializePlayData(file: PlayDataFile): string {
       tracks[key] = entry
     }
   }
-  return `${JSON.stringify({ version: 1, tracks }, null, 2)}\n`
+  const mergedPlayCounts: Record<string, string> = {}
+  for (const key of Object.keys(file.mergedPlayCounts).sort()) {
+    const digest = file.mergedPlayCounts[key]
+    if (digest) {
+      mergedPlayCounts[key] = digest
+    }
+  }
+  return `${JSON.stringify({ version: 1, tracks, mergedPlayCounts }, null, 2)}\n`
 }
 
 export async function writePlayDataAtomic(dir: string, file: PlayDataFile): Promise<void> {
