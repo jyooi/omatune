@@ -24,7 +24,8 @@
       "gapless": {
         "role": "pregap",
         "encoderDelay": 576,
-        "encoderPadding": 1080
+        "encoderPadding": 1080,
+        "sampleCount": 88200
       }
     },
     {
@@ -44,7 +45,8 @@
       "gapless": {
         "role": "postgap",
         "encoderDelay": 576,
-        "encoderPadding": 1080
+        "encoderPadding": 1080,
+        "sampleCount": 88200
       }
     },
     {

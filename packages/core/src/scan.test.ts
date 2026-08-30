@@ -31,6 +31,11 @@ test("scanner reads mp3 and m4a tags from the Verification Library", async () =>
   expect(mp3?.tags?.durationSeconds).not.toBeNull()
   expect(mp3?.tags?.durationSeconds ?? 0).toBeGreaterThan(1)
   expect(mp3?.tags?.durationSeconds ?? 0).toBeLessThan(4)
+  expect(mp3?.tags?.gapless).toEqual({
+    encoderDelay: 576,
+    encoderPadding: 1080,
+    sampleCount: 88200n,
+  })
 
   const aac = byPath.get("field-recordings/01-alpha.m4a")
   expect(aac?.tags?.title).toBe("Alpha")

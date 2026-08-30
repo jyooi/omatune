@@ -10,6 +10,7 @@ type GaplessManifest = {
   role: "pregap" | "postgap";
   encoderDelay: number;
   encoderPadding: number;
+  sampleCount: number;
 };
 
 type TrackManifest = {
@@ -76,6 +77,7 @@ describe("Verification Library manifest", () => {
         expect(tags.gapless).not.toBeNull();
         expect(tags.gapless?.encoderDelay).toBe(expected.gapless.encoderDelay);
         expect(tags.gapless?.encoderPadding).toBe(expected.gapless.encoderPadding);
+        expect(tags.gapless?.sampleCount).toBe(BigInt(expected.gapless.sampleCount));
       }
     }
   });
