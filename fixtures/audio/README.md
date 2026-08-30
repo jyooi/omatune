@@ -29,7 +29,7 @@ One Album is ALAC in m4a.
 
 One Album is a compilation under Various Artists.
 One Album is multi-disc.
-Two MP3 Tracks form a gapless pair with LAME delay and padding.
+Two MP3 Tracks form a gapless pair with LAME delay, padding, and sample count.
 
 ## Generate
 
