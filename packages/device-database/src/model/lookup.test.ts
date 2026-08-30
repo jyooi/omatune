@@ -39,3 +39,12 @@ test("nano 4G range includes an interior ModelNumStr", () => {
   const family = lookupByModelNumStr("MB700")
   expect(family?.family).toBe("iPod nano 4G")
 })
+
+test("exact appleModels match wins overlapping ranges", () => {
+  expect(lookupByModelNumStr("MA004")?.family).toBe("iPod nano 1G")
+  expect(lookupByModelNumStr("M9724")?.family).toBe("iPod shuffle 1G to 4G")
+})
+
+test("narrowest covering range wins before onward", () => {
+  expect(lookupByModelNumStr("MA005")?.family).toBe("iPod nano 1G")
+})

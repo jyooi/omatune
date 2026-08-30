@@ -17,24 +17,40 @@ export function lookupByLibgpodKey(key: string): FamilyRecord | undefined {
   return modelTable.find((family) => keyMatches(family, key))
 }
 
+function rangeWidth(range: { start: number; end: number }): number {
+  return range.end - range.start
+}
+
 export function lookupByModelNumStr(model: string): FamilyRecord | undefined {
   const needle = model.trim().toUpperCase()
+  const exact = modelTable.find((family) => family.appleModels.includes(needle))
+  if (exact) {
+    return exact
+  }
   const parsed = parseModelNum(needle)
+  if (!parsed) {
+    return undefined
+  }
+  let narrowest: FamilyRecord | undefined
+  let narrowestWidth = Number.POSITIVE_INFINITY
   for (const family of modelTable) {
-    if (family.appleModels.includes(needle)) {
-      return family
-    }
-    if (!parsed) {
-      continue
-    }
-    if (family.ranges.some((range) => range.prefix === parsed.prefix && parsed.num >= range.start && parsed.num <= range.end)) {
-      return family
-    }
-    if (family.onward.some((entry) => entry.prefix === parsed.prefix && parsed.num >= entry.start)) {
-      return family
+    for (const range of family.ranges) {
+      if (range.prefix !== parsed.prefix || parsed.num < range.start || parsed.num > range.end) {
+        continue
+      }
+      const width = rangeWidth(range)
+      if (width < narrowestWidth) {
+        narrowest = family
+        narrowestWidth = width
+      }
     }
   }
-  return undefined
+  if (narrowest) {
+    return narrowest
+  }
+  return modelTable.find((family) =>
+    family.onward.some((entry) => entry.prefix === parsed.prefix && parsed.num >= entry.start),
+  )
 }
 
 export function lookupFamily(input: { modelString?: string | null; libgpodKey?: string | null }): FamilyRecord | undefined {
