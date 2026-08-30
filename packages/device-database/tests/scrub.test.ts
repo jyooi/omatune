@@ -20,6 +20,7 @@ import {
   signScrubbedItunesdb,
 } from "../src/scrub.ts"
 import { mhbd, mhlt, mhitWith, mhsd, opaqueMhod } from "./build.ts"
+import { publicFixture } from "./fixture-paths.ts"
 
 function countByte(bytes: Uint8Array, value: number): number {
   let n = 0
@@ -139,19 +140,44 @@ describe("scrub iTunesDB", () => {
 })
 
 describe("scrub ithmb", () => {
-  test("fills pixel area with a flat colour and keeps size", () => {
+  test("fills every byte of each block with a flat colour", () => {
     const width = 2
     const height = 2
     const blockBytes = 16
-    const bytes = new Uint8Array(blockBytes)
+    const bytes = new Uint8Array(blockBytes * 2)
     bytes.fill(0xff)
     const out = scrubIthmb(bytes, width, height, blockBytes)
-    expect(out.byteLength).toBe(blockBytes)
-    const view = new DataView(out.buffer)
-    const first = view.getUint16(0, true)
-    expect(view.getUint16(2, true)).toBe(first)
-    expect(view.getUint16(4, true)).toBe(first)
-    expect(view.getUint16(6, true)).toBe(first)
+    expect(out.byteLength).toBe(bytes.byteLength)
+    let index = 0
+    while (index < 2) {
+      const view = new DataView(out.buffer, index * blockBytes, blockBytes)
+      const colour = view.getUint16(0, true)
+      let offset = 0
+      while (offset < blockBytes) {
+        expect(view.getUint16(offset, true)).toBe(colour)
+        offset += 2
+      }
+      index += 1
+    }
+  })
+
+  test("public CLASSIC_2 F1061 ithmb has no leftover tail pixels", async () => {
+    const path = join(publicFixture().dir, "Artwork", "F1061_1.ithmb")
+    const bytes = new Uint8Array(await Bun.file(path).bytes())
+    const blockBytes = 6160
+    expect(bytes.byteLength % blockBytes).toBe(0)
+    let index = 0
+    const blockCount = bytes.byteLength / blockBytes
+    while (index < blockCount) {
+      const view = new DataView(bytes.buffer, bytes.byteOffset + index * blockBytes, blockBytes)
+      const colour = view.getUint16(0, true)
+      let offset = 0
+      while (offset < blockBytes) {
+        expect(view.getUint16(offset, true)).toBe(colour)
+        offset += 2
+      }
+      index += 1
+    }
   })
 })
 

@@ -3,7 +3,7 @@
  *
  * The Scrub replaces UTF-16 and UTF-8 strings with same-length placeholders.
  * The Scrub replaces library and Track persistent ids with keyed values.
- * The Scrub overwrites ithmb pixel areas with a flat colour plus index.
+ * The Scrub overwrites each ithmb block with a flat colour plus index.
  * The Scrub signs the iTunesDB with hash58 under FAKE_SERIAL.
  */
 
@@ -103,18 +103,19 @@ export function scrubIthmb(
   blockBytes: number,
 ): Uint8Array {
   const out = bytes.slice()
-  const pixelBytes = width * height * 2
   const blockCount = Math.floor(out.byteLength / blockBytes)
   let index = 0
   while (index < blockCount) {
     const start = index * blockBytes
     const colour = rgb565FromIndex(index)
-    const view = new DataView(out.buffer, out.byteOffset + start, pixelBytes)
-    let pixel = 0
-    const count = width * height
-    while (pixel < count) {
-      view.setUint16(pixel * 2, colour, true)
-      pixel += 1
+    const view = new DataView(out.buffer, out.byteOffset + start, blockBytes)
+    let offset = 0
+    while (offset + 1 < blockBytes) {
+      view.setUint16(offset, colour, true)
+      offset += 2
+    }
+    if (offset < blockBytes) {
+      out[start + offset] = colour & 0xff
     }
     index += 1
   }
