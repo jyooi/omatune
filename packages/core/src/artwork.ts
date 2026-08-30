@@ -5,6 +5,8 @@ import { join } from "node:path"
 import {
   artworkFormatRows,
   buildArtworkdb,
+  imageItems,
+  parseArtworkdb,
   rgb888ToRgb565Le,
   serializeArtworkdb,
   type ArtworkFormatRow,
@@ -98,7 +100,7 @@ export async function writeDeviceArtwork(input: ArtworkWriteInput): Promise<Artw
   if (
     input.priorHashes &&
     !hashesDiffer(hashes, input.priorHashes) &&
-    !(await artworkFilesMissing(input.mountPoint, rows, hashes))
+    !(await artworkFilesMissing(input.mountPoint, rows))
   ) {
     return { dbidsWithArtwork: new Set(), hashes, skipped, wrote: false }
   }
@@ -298,13 +300,19 @@ function hashesDiffer(
 async function artworkFilesMissing(
   mountPoint: string,
   rows: ReadonlyArray<ArtworkFormatRow>,
-  hashes: ReadonlyMap<string, string | null>,
 ): Promise<boolean> {
-  if (!(await Bun.file(join(mountPoint, ARTWORKDB)).exists())) {
+  const dbFile = Bun.file(join(mountPoint, ARTWORKDB))
+  if (!(await dbFile.exists())) {
     return true
   }
-  const hasBytes = [...hashes.values()].some((hash) => hash !== null)
-  if (!hasBytes) {
+  let hasRows = false
+  try {
+    const db = parseArtworkdb(new Uint8Array(await dbFile.arrayBuffer()))
+    hasRows = imageItems(db).length > 0
+  } catch {
+    hasRows = false
+  }
+  if (!hasRows) {
     return false
   }
   for (const row of rows) {

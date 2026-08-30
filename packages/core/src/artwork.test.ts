@@ -91,6 +91,14 @@ test("a Track whose cover cannot be decoded is Skipped-for-artwork", async () =>
     await Bun.file(join(root, "mount", "iPod_Control", "Artwork", "ArtworkDB")).arrayBuffer(),
   )
   expect(imageItems(parseArtworkdb(bytes))).toHaveLength(0)
+  const second = await writeDeviceArtwork({
+    mountPoint: join(root, "mount"),
+    family: CLASSIC,
+    cacheDir: join(root, "cache"),
+    tracks: [track("a/01.mp3", "1", "A", "Album", sof2Jpeg())],
+    priorHashes: result.hashes,
+  })
+  expect(second.wrote).toBe(false)
 })
 
 test("an Album falls back to the next path-sorted Track with a decodable cover", async () => {
