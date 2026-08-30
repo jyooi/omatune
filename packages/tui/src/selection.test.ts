@@ -83,7 +83,15 @@ const startSelection = {
   ],
 }
 
-async function mount(width: number, height: number) {
+async function mount(
+  width: number,
+  height: number,
+  overrides: {
+    libraryRoot?: string
+    files?: ScannedFile[]
+    selection?: typeof startSelection
+  } = {},
+) {
   const clock = new ManualClock()
   const written: string[] = []
   const setup = await createTestRenderer({
@@ -96,14 +104,14 @@ async function mount(width: number, height: number) {
   const handle = attachSelectionScreen(
     setup.renderer,
     {
-      libraryRoot: "~/Music",
+      libraryRoot: overrides.libraryRoot ?? "~/Music",
       deviceName: "Classic 120GB",
       serial: "000A27001395D5A3",
       tier: "Verified",
       freeBytes: 24_300_000_000,
       tracksOnDevice: 1,
-      files,
-      selection: startSelection,
+      files: overrides.files ?? files,
+      selection: overrides.selection ?? startSelection,
       ledger,
       writeSelection: async (selection) => {
         written.push(serializeSelection(selection))
@@ -128,6 +136,16 @@ test("Selection screen snapshot at 80x24", async () => {
   const frame = view.captureCharFrame()
   expect(frame).toContain("Verified")
   expect(frame).toMatchSnapshot()
+  view.handle.dispose()
+  view.renderer.destroy()
+})
+
+test("80-column header keeps Support Tier with an absolute library path", async () => {
+  const view = await mount(80, 24, { libraryRoot: "/path/to/music" })
+  const header = view.captureCharFrame().split("\n")[0] ?? ""
+  expect(header).toContain("Verified")
+  expect(header).toContain("000A27001395D5A3")
+  expect(header).toContain("Classic 120GB")
   view.handle.dispose()
   view.renderer.destroy()
 })

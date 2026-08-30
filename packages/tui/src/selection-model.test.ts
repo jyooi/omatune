@@ -8,6 +8,7 @@ import {
   mirrorRows,
   planOf,
   selectedPathsOf,
+  tickState,
   toggleAlbum,
   toggleArtist,
   visibleRules,
@@ -158,6 +159,25 @@ test("mirror Album count includes only plan add and keep Tracks", () => {
     marker: "+",
     count: "1",
   })
+})
+
+test("Artist tick ignores Tracks that cannot go on the Device", () => {
+  const mixed: ScannedFile[] = [
+    file("Radiohead/Kid A/01 Everything In Its Right Place.mp3", 6_000_000, kida),
+    file("Radiohead/Kid A/CON.mp3", 6_000_000, { ...kida, title: "Bad" }),
+  ]
+  const artists = groupLibrary(mixed)
+  const radiohead = artists.find((node) => node.name === "Radiohead")
+  expect(radiohead).toBeDefined()
+  if (!radiohead) {
+    return
+  }
+  const tracks = radiohead.albums.flatMap((album) => album.tracks)
+  const on = toggleArtist(emptySelection(), "Radiohead", "none")
+  const selected = selectedPathsOf(mixed, on)
+  expect(tickState(tracks, selected)).toBe("all")
+  const off = toggleArtist(on, "Radiohead", tickState(tracks, selected))
+  expect(off.include).toEqual([])
 })
 
 test("tree rows are Artist then Album", () => {

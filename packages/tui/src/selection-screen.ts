@@ -234,16 +234,11 @@ export function attachSelectionScreen(
     clampCursor()
     const wide = renderer.width >= WIDE_MIN
     panes.flexDirection = wide ? "row" : "column"
-    const leftLen =
-      `omatune ${host.libraryRoot} -> ${host.deviceName} ${host.serial} ${host.tier}`.length
-    const free = formatFree(host.freeBytes)
-    const tracks = `${String(host.tracksOnDevice)} Tracks`
-    const wideRight = `${free} free · ${tracks}`
-    const compact = leftLen + 1 + wideRight.length > Math.max(0, renderer.width - 2)
-    headerLeft.content = st`${bold(fg(palette.accent)("omatune"))} ${host.libraryRoot} ${dim("->")} ${bold(host.deviceName)} ${dim(host.serial)} ${fg(palette.green)(host.tier)}`
-    headerRight.content = compact
-      ? st`${free} ${dim("·")} ${tracks}`
-      : st`${free} free ${dim("·")} ${tracks}`
+    const packed = packHeader(host, renderer.width)
+    headerLeft.content = st`${bold(fg(palette.accent)("omatune"))} ${packed.root} ${dim("->")} ${bold(packed.deviceName)} ${dim(host.serial)} ${fg(palette.green)(host.tier)}`
+    headerRight.content = packed.compactRight
+      ? st`${packed.free} ${dim("·")} ${packed.tracks}`
+      : st`${packed.free} free ${dim("·")} ${packed.tracks}`
 
     const selected = selectedPathsOf(host.files, selection)
     const treeRows = flattenTree(artists, selected, expanded)
@@ -490,4 +485,67 @@ function keyHelp() {
 
 function formatFree(bytes: number): string {
   return `${(bytes / 1_000_000_000).toFixed(1)} GB`
+}
+
+function packHeader(host: SelectionHost, width: number): {
+  root: string
+  deviceName: string
+  free: string
+  tracks: string
+  compactRight: boolean
+} {
+  const inner = Math.max(0, width - 2)
+  const free = formatFree(host.freeBytes)
+  const tracks = `${String(host.tracksOnDevice)} Tracks`
+  const rightWide = `${free} free · ${tracks}`
+  const rightNarrow = `${free} · ${tracks}`
+  const leftOf = (root: string, deviceName: string) =>
+    `omatune ${root} -> ${deviceName} ${host.serial} ${host.tier}`
+  const fits = (root: string, deviceName: string, right: string) =>
+    leftOf(root, deviceName).length + 1 + right.length <= inner
+  let root = host.libraryRoot
+  let deviceName = host.deviceName
+  let right = rightWide
+  if (!fits(root, deviceName, right)) {
+    right = rightNarrow
+  }
+  if (!fits(root, deviceName, right)) {
+    const budget =
+      inner - 1 - right.length - `omatune  -> ${deviceName} ${host.serial} ${host.tier}`.length
+    root = ellipsizeStart(host.libraryRoot, Math.max(1, budget))
+  }
+  if (!fits(root, deviceName, right)) {
+    const budget =
+      inner - 1 - right.length - `omatune ${root} ->  ${host.serial} ${host.tier}`.length
+    deviceName = ellipsizeEnd(host.deviceName, Math.max(1, budget))
+  }
+  return { root, deviceName, free, tracks, compactRight: right === rightNarrow }
+}
+
+function ellipsizeStart(text: string, max: number): string {
+  if (text.length <= max) {
+    return text
+  }
+  if (max <= 1) {
+    return "…"
+  }
+  const tail = text.slice(-(max - 1))
+  const slash = tail.indexOf("/")
+  if (slash >= 0 && slash < tail.length - 1) {
+    const cut = `…${tail.slice(slash)}`
+    if (cut.length <= max) {
+      return cut
+    }
+  }
+  return `…${tail}`
+}
+
+function ellipsizeEnd(text: string, max: number): string {
+  if (text.length <= max) {
+    return text
+  }
+  if (max <= 1) {
+    return "…"
+  }
+  return `${text.slice(0, max - 1)}…`
 }

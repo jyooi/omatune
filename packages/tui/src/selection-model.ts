@@ -2,6 +2,8 @@ import {
   albumIdentity,
   buildPlan,
   evaluateSelection,
+  isSupportedExtension,
+  isUnstorableName,
   normaliseName,
   type AppSelection,
   type Ledger,
@@ -22,6 +24,7 @@ export type LibraryTrack = {
   readonly title: string
   readonly track: number | null
   readonly disc: number | null
+  readonly selectable: boolean
 }
 
 export type AlbumNode = {
@@ -95,6 +98,7 @@ export function groupLibrary(files: ReadonlyArray<ScannedFile>): ArtistNode[] {
       title: (file.tags.title ?? file.relativePath.split("/").pop() ?? file.relativePath).trim(),
       track: file.tags.track,
       disc: file.tags.disc,
+      selectable: isSupportedExtension(file.extension) && !isUnstorableName(file.relativePath),
     })
   }
   const nodes: ArtistNode[] = []
@@ -125,8 +129,12 @@ export function selectedPathsOf(
 }
 
 export function tickState(tracks: ReadonlyArray<LibraryTrack>, selected: ReadonlySet<string>): TickState {
+  const countable = tracks.filter((track) => track.selectable)
+  if (countable.length === 0) {
+    return "none"
+  }
   let on = 0
-  for (const track of tracks) {
+  for (const track of countable) {
     if (selected.has(track.relativePath)) {
       on += 1
     }
@@ -134,7 +142,7 @@ export function tickState(tracks: ReadonlyArray<LibraryTrack>, selected: Readonl
   if (on === 0) {
     return "none"
   }
-  if (on === tracks.length) {
+  if (on === countable.length) {
     return "all"
   }
   return "some"
