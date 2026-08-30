@@ -2,7 +2,7 @@
 
 This folder is the public CC0 Verification Library.
 Reporters and tests use this fixed set of Tracks.
-The Device Checklist in `docs/verification/device-checklist.yaml` reads counts from `manifest.json`.
+The Device Checklist in `docs/verification/device-checklist.yaml` uses this set.
 
 ## License
 
@@ -20,7 +20,7 @@ They contain no third-party recordings.
 
 ## Counts
 
-The Library has 12 Tracks, 3 Albums, and 2 album artists.
+The Verification Library has 12 Tracks, 3 Albums, and 2 album artists.
 11 Tracks have Artwork.
 1 Track has no Artwork.
 One Album is MP3.
@@ -44,10 +44,9 @@ If ffmpeg is absent, the script writes an error and exits with status 1.
 ## Determinism
 
 The script sets ffmpeg bitexact flags.
-LAME delay and padding come from this script, not from libmp3lame.
-Cover PNG bytes come from this script.
+The script writes the LAME encoder string, delay, and padding.
+The script writes Artwork PNG bytes.
 AAC frames change across ffmpeg versions.
-The libmp3lame Info tag can include an encoder version string.
 Commit a new generate run only to refresh the bytes.
 
 ## Manifest
@@ -59,4 +58,4 @@ Commit a new generate run only to refresh the bytes.
 `counts.tracksWithArtwork` is the Track count with Artwork.
 
 Each `tracks[]` entry states path, codec, title, artist, album, albumArtist, track numbers, disc numbers, compilation flag, Artwork flag, duration, and gapless fields when they apply.
-Tests and the Device Checklist read these values.
+Tests read these values.
