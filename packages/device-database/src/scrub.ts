@@ -3,7 +3,7 @@
  *
  * The Scrub replaces UTF-16 and UTF-8 strings with same-length placeholders.
  * The Scrub replaces library and Track persistent ids with keyed values.
- * The Scrub overwrites each ithmb block with a flat colour plus index.
+ * The Scrub fills every byte of each ithmb block with a flat colour plus index.
  * The Scrub signs the iTunesDB with hash58 under FAKE_SERIAL.
  */
 

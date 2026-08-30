@@ -47,12 +47,12 @@ Set `FirewireGuid: 0x000A270000000001` in `iPod_Control/Device/SysInfo`.
 Run the libgpod write path on that volume.
 Compare the 20 bytes at offset 0x58 with the hash58 output.
 
-This change does not run that libgpod step.
+The scrub command does not run libgpod.
 
 ## Synthetic Fixture
 
 `fixtures/device/synthetic-classic/` is a writer regression baseline.
-The files match a Sync of the Verification Library onto an empty CLASSIC_2 Device.
+The writer builds these files from the Verification Library for CLASSIC_2.
 A test regenerates the files and compares every byte.
 
 ## Private Fixture
@@ -60,3 +60,9 @@ A test regenerates the files and compares every byte.
 The Private Fixture stays on the maintainer clone.
 Git ignores `fixtures/device/ipod-classic-120gb/`.
 Do not copy strings from a Private Fixture into tests or docs.
+
+## Golden tests
+
+S2 golden-file tests read the Public Fixture.
+The tests pass in a clean clone.
+The tests also read the Private Fixture when that folder is present.
