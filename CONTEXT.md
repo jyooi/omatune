@@ -42,12 +42,21 @@ The cover image embedded in a Track's tags, written to the Device so the firmwar
 _Avoid_: cover, thumbnail, album art
 
 **Play Data**:
-Play count, skip count, rating, and last-played time that the Device records per Track.
+Play count, skip count, rating, last-played time, last-skipped time, and bookmark position that the Device records per Track.
+omatune keeps one Play Data record per Track on the host, merged across every Device.
 _Avoid_: stats, listening history, scrobbles
 
 **Read-back**:
-Copying Play Data from the Device to a file on the host before a Sync changes the Device.
+Merging the Play Data a Device recorded since the last Sync into the host record, before that Sync changes the Device.
 _Avoid_: reverse sync, import
+
+**Echo**:
+A Play Data value the Device reports that equals the value the last Sync wrote to it, so it carries no new information.
+_Avoid_: duplicate, unchanged value
+
+**Foreign Device**:
+A Device whose Device Database omatune did not write. A Sync wipes it after confirmation and reads no Play Data from it.
+_Avoid_: iTunes iPod, unknown device, fresh device
 
 **Ledger**:
 The host-side record, one per Device, of which Tracks the Device holds and how each was identified at the last Sync.
