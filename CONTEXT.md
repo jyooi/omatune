@@ -77,3 +77,15 @@ _Avoid_: import, recovery, re-sync
 **Skipped**:
 A Track the Selection matches that a Sync leaves off the Device, with a stated reason.
 _Avoid_: error, failed, ignored
+
+**Support Tier**:
+The promise omatune makes for one iPod family: Verified (a Sync passed the Device Checklist on real hardware), Expected (the format is implemented, no hardware report yet), or Unsupported (omatune refuses the Device).
+_Avoid_: compatibility level, status
+
+**Device Checklist**:
+The manual pass-or-fail list a person runs on a Device after a Sync to confirm the firmware reads what omatune wrote.
+_Avoid_: QA script, smoke test
+
+**Verification Report**:
+A public issue from a community member that carries a completed Device Checklist plus the Device facts needed to move a family between Support Tiers.
+_Avoid_: bug report, feedback
