@@ -176,7 +176,7 @@ export function readLameGapless(audio: Uint8Array): Gapless | null {
   if (!info) {
     return null;
   }
-  const lame = info.subarray(0x9c);
+  const lame = info.subarray(0x78);
   if (lame.length < 0x18) {
     return null;
   }

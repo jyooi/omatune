@@ -433,7 +433,7 @@ function writeLameGapless(bytes: Uint8Array, audioStart: number): void {
   const frames = readU32(bytes, xingAbs + 8);
   const pcm = DURATION_SECONDS * SAMPLE_RATE;
   const padding = Math.max(0, frames * 1152 - pcm - LAME_DELAY);
-  const lameAbs = xingAbs + 0x9c;
+  const lameAbs = xingAbs + 0x78;
   const name = Buffer.from("LAME3.100");
   bytes.set(name, lameAbs);
   const packed = ((LAME_DELAY & 0xfff) << 12) | (padding & 0xfff);
