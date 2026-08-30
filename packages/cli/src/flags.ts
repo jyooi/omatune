@@ -16,6 +16,7 @@ export type ParseFailure = {
 export type RunIo = {
   stdin?: string
   stderrWrite?: (text: string) => void
+  stdoutWrite?: (text: string) => void
 }
 
 export type RunResult = {

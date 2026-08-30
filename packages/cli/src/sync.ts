@@ -31,6 +31,7 @@ export async function runSyncCommand(
   })
   const events: SyncEvent[] = []
   const confirm = (plan: SyncPlan) => confirmSync(plan, flags, io)
+  const write = io.stdoutWrite
   const program = Stream.runForEach(
     runSync({
       serial: flags.device,
@@ -44,6 +45,13 @@ export async function runSyncCommand(
     (event) =>
       Effect.sync(() => {
         events.push(event)
+        if (!write) {
+          return
+        }
+        const chunk = formatLive(event, flags.json)
+        if (chunk.length > 0) {
+          write(chunk)
+        }
       }),
   ).pipe(Effect.provide(layer), Effect.either)
   const result = await Effect.runPromise(program)
@@ -53,7 +61,7 @@ export async function runSyncCommand(
     const code = "code" in error && (error.code === 1 || error.code === 2) ? error.code : ExitCode.RefusedBeforeChange
     return {
       code,
-      stdout: renderEvents(events, flags.json, false),
+      stdout: write ? "" : renderEvents(events, flags.json, false),
       stderr: `${message}\n`,
     }
   }
@@ -61,7 +69,7 @@ export async function runSyncCommand(
   const ejected = report?.type === "report" ? report.ejected : false
   return {
     code: ExitCode.Success,
-    stdout: renderEvents(events, flags.json, ejected),
+    stdout: write ? "" : renderEvents(events, flags.json, ejected),
     stderr: "",
   }
 }
@@ -94,6 +102,28 @@ async function readConfirmLine(io: RunIo): Promise<string> {
     }
   }
   return Buffer.concat(chunks).toString("utf8")
+}
+
+function formatLive(event: SyncEvent, json: boolean): string {
+  if (json) {
+    return `${JSON.stringify(event)}\n`
+  }
+  if (event.type === "plan") {
+    return formatPlanText(event.plan)
+  }
+  if (event.type === "report") {
+    const lines = [
+      `Added: ${event.added}`,
+      `Removed: ${event.removed}`,
+      `Kept: ${event.kept}`,
+      `Skipped: ${event.skipped}`,
+    ]
+    if (event.ejected) {
+      lines.push("Safe to unplug")
+    }
+    return `${lines.join("\n")}\n`
+  }
+  return ""
 }
 
 function renderEvents(events: ReadonlyArray<SyncEvent>, json: boolean, ejected: boolean): string {

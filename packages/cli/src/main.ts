@@ -31,6 +31,7 @@ export async function runMain(
   env: NodeJS.ProcessEnv = process.env,
   io: RunIo = {},
 ): Promise<RunResult> {
+  const platformLayer = layer ?? defaultLayer()
   const parsed = parseArgv(argv)
   if ("message" in parsed) {
     return refused(parsed.message)
@@ -40,7 +41,7 @@ export async function runMain(
     return runTui({
       config: parsed.config,
       device: parsed.device,
-      layer,
+      layer: platformLayer,
       env,
     })
   }
@@ -50,11 +51,11 @@ export async function runMain(
   }
 
   if (parsed.subcommand === "plan") {
-    return runPlan(parsed, layer, env)
+    return runPlan(parsed, platformLayer, env)
   }
 
   if (parsed.subcommand === "sync") {
-    return runSyncCommand(parsed, layer, env, io)
+    return runSyncCommand(parsed, platformLayer, env, io)
   }
 
   if (parsed.subcommand !== "devices") {
@@ -66,7 +67,7 @@ export async function runMain(
       const stdout = parsed.json ? formatJson(reports) : formatTable(reports)
       return { code: ExitCode.Success, stdout, stderr: "" } satisfies RunResult
     }),
-    Effect.provide(layer),
+    Effect.provide(platformLayer),
     Effect.catchAllDefect((defect) =>
       Effect.succeed(
         refused(defect instanceof Error ? defect.message : String(defect)),

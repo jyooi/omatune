@@ -14,24 +14,27 @@ export const PLAY_COUNTS = join("iPod_Control", "iTunes", "Play Counts")
 export async function copyFileChunked(source: string, dest: string): Promise<void> {
   await mkdir(dirname(dest), { recursive: true })
   const input = await open(source, "r")
-  const output = await open(dest, "w")
-  const buffer = Buffer.alloc(COPY_CHUNK_BYTES)
-  let offset = 0
-  let outOffset = 0
   try {
-    while (true) {
-      const read = await input.read(buffer, 0, buffer.length, offset)
-      if (read.bytesRead === 0) {
-        break
+    const output = await open(dest, "w")
+    const buffer = Buffer.alloc(COPY_CHUNK_BYTES)
+    let offset = 0
+    let outOffset = 0
+    try {
+      while (true) {
+        const read = await input.read(buffer, 0, buffer.length, offset)
+        if (read.bytesRead === 0) {
+          break
+        }
+        await output.write(buffer, 0, read.bytesRead, outOffset)
+        offset += read.bytesRead
+        outOffset += read.bytesRead
       }
-      await output.write(buffer, 0, read.bytesRead, outOffset)
-      offset += read.bytesRead
-      outOffset += read.bytesRead
+      await output.sync()
+    } finally {
+      await output.close()
     }
-    await output.sync()
   } finally {
     await input.close()
-    await output.close()
   }
 }
 

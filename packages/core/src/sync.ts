@@ -111,23 +111,37 @@ export function runSync(request: SyncRequest): Stream.Stream<SyncEvent, SyncErro
   return Stream.asyncPush((emit) =>
     Effect.gen(function* () {
       const platform = yield* Platform
-      yield* Effect.promise(async () => {
-        const serial = request.serial.toLowerCase()
-        let lockPath: string | undefined
-        try {
-          lockPath = await acquireSerialLock(request.configDir, serial)
-          await executeLocked(request, serial, platform, async (event) => {
-            emit.single(event)
-          })
-          emit.end()
-        } catch (cause) {
-          emit.fail(toSyncError(cause, ExitCode.StoppedAfterChange))
-        } finally {
-          if (lockPath !== undefined) {
-            await releaseSerialLock(lockPath)
+      yield* Effect.forkScoped(
+        Effect.promise(async () => {
+          const serial = request.serial.toLowerCase()
+          let lockPath: string | undefined
+          let failure: unknown
+          try {
+            try {
+              lockPath = await acquireSerialLock(request.configDir, serial)
+            } catch (cause) {
+              throw new SyncError({
+                message: cause instanceof Error ? cause.message : String(cause),
+                code: ExitCode.RefusedBeforeChange,
+              })
+            }
+            await executeLocked(request, serial, platform, async (event) => {
+              emit.single(event)
+            })
+          } catch (cause) {
+            failure = cause
+          } finally {
+            if (lockPath !== undefined) {
+              await releaseSerialLock(lockPath)
+            }
           }
-        }
-      })
+          if (failure !== undefined) {
+            emit.fail(toSyncError(failure, ExitCode.StoppedAfterChange))
+            return
+          }
+          emit.end()
+        }),
+      )
     }),
   )
 }
@@ -243,13 +257,13 @@ async function prepareSync(
         : `Device family ${familyName} is Unsupported.`
     throw new SyncError({
       message: `${reason} See docs/support-table.md.`,
-      code: ExitCode.StoppedAfterChange,
+      code: ExitCode.RefusedBeforeChange,
     })
   }
   if (!family) {
     throw new SyncError({
       message: "Unknown Device family. See docs/support-table.md.",
-      code: ExitCode.StoppedAfterChange,
+      code: ExitCode.RefusedBeforeChange,
     })
   }
   const ledgerResult = await loadLedger(request.configDir, serial)
@@ -344,27 +358,32 @@ async function runPipeline(
       }
       return job
     }
+    let hashing: Promise<void> = Promise.resolve()
     const prefetch = (from: number) => {
       const slice = add.slice(from, from + HASH_AHEAD)
-      void runPool(slice, HASH_AHEAD, async (track) => {
+      hashing = runPool(slice, HASH_AHEAD, async (track) => {
         await ensureHash(track.path)
-      })
+      }).catch(() => undefined)
     }
     let copied = 0
     let bytesDone = 0
     const bytesTotal = ctx.plan.bytesNeeded
-    for (let i = 0; i < add.length; i += 1) {
-      prefetch(i)
-      const track = add[i]
-      if (!track) {
-        continue
+    try {
+      for (let i = 0; i < add.length; i += 1) {
+        prefetch(i)
+        const track = add[i]
+        if (!track) {
+          continue
+        }
+        await emitPhase(emit, "copy", bytesDone, bytesTotal, copied, add.length, track.path)
+        await ensureHash(track.path)
+        await copyFileChunked(join(ctx.config.library, track.path), join(ctx.mountPoint, track.devicePath))
+        copied += 1
+        bytesDone += track.size
+        await yieldFiber()
       }
-      await emitPhase(emit, "copy", bytesDone, bytesTotal, copied, add.length, track.path)
-      await ensureHash(track.path)
-      await copyFileChunked(join(ctx.config.library, track.path), join(ctx.mountPoint, track.devicePath))
-      copied += 1
-      bytesDone += track.size
-      await yieldFiber()
+    } finally {
+      await hashing
     }
     await emitPhase(emit, "copy", bytesDone, bytesTotal, copied, add.length, null)
 
