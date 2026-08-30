@@ -129,9 +129,16 @@ const doneReport: SyncEvent = {
   ejected: true,
 }
 
-function scriptedRun(plan: SyncPlan, after: ReadonlyArray<SyncEvent>) {
+function scriptedRun(
+  plan: SyncPlan,
+  after: ReadonlyArray<SyncEvent>,
+  holdConfirm?: Promise<void>,
+) {
   return async (request: SyncRequest, onEvent: (event: SyncEvent) => void) => {
     onEvent({ type: "plan", plan })
+    if (holdConfirm) {
+      await holdConfirm
+    }
     const ok = await request.confirm(plan)
     if (!ok) {
       throw new SyncError({ message: "Sync cancelled.", code: 1 })
@@ -149,6 +156,7 @@ async function mount(
     plan?: SyncPlan
     after?: ReadonlyArray<SyncEvent>
     yes?: boolean
+    holdConfirm?: Promise<void>
   } = {},
 ) {
   const clock = new ManualClock()
@@ -182,7 +190,11 @@ async function mount(
     },
     {
       clock,
-      runSync: scriptedRun(input.plan ?? makePlan(), input.after ?? [midCopy, doneReport]),
+      runSync: scriptedRun(
+        input.plan ?? makePlan(),
+        input.after ?? [midCopy, doneReport],
+        input.holdConfirm,
+      ),
       onFinish: (result) => {
         finished.push(result)
       },
@@ -292,6 +304,45 @@ test("Esc from the plan returns to Selection", async () => {
   const frame = view.captureCharFrame()
   expect(frame).toContain("Enter plan")
   expect(frame).not.toContain("Sync now? [y/N]")
+  view.handle.dispose()
+  view.renderer.destroy()
+})
+
+test("Esc before confirm waiter returns to Selection", async () => {
+  let release: (() => void) | undefined
+  const holdConfirm = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const view = await mount(110, 32, { after: [], holdConfirm })
+  view.mockInput.pressEnter()
+  await settle(view)
+  expect(view.captureCharFrame()).toContain("Sync now? [y/N]")
+  view.mockInput.pressEscape()
+  await settle(view)
+  expect(view.captureCharFrame()).toContain("Enter plan")
+  expect(view.captureCharFrame()).not.toContain("Sync now? [y/N]")
+  release?.()
+  await settle(view)
+  expect(view.captureCharFrame()).toContain("Enter plan")
+  expect(view.captureCharFrame()).not.toContain("Sync now? [y/N]")
+  view.handle.dispose()
+  view.renderer.destroy()
+})
+
+test("y before confirm waiter starts Sync", async () => {
+  let release: (() => void) | undefined
+  const holdConfirm = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const view = await mount(110, 32, { after: [midCopy], holdConfirm })
+  view.mockInput.pressEnter()
+  await settle(view)
+  view.mockInput.pressKey("y")
+  await settle(view)
+  release?.()
+  view.clock.advance(1000)
+  await settle(view)
+  expect(view.captureCharFrame()).toContain("Phase: copy")
   view.handle.dispose()
   view.renderer.destroy()
 })

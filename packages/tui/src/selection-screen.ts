@@ -122,6 +122,7 @@ export function attachSelectionScreen(
   let previousMode: Mode = "select"
   let livePlan: SyncPlan | null = null
   let pendingConfirm: ((ok: boolean) => void) | null = null
+  let earlyConfirm: boolean | null = null
   let wipeBuf = ""
   let progress: SyncProgress | null = null
   let rate: CopyRate | null = null
@@ -593,8 +594,15 @@ export function attachSelectionScreen(
     const pending = pendingConfirm
     pendingConfirm = null
     if (!pending) {
+      earlyConfirm = ok
+      if (!ok) {
+        mode = "select"
+        livePlan = null
+        requestDraw()
+      }
       return
     }
+    earlyConfirm = null
     if (!ok) {
       mode = "select"
       livePlan = null
@@ -606,11 +614,20 @@ export function attachSelectionScreen(
   function onConfirm(plan: SyncPlan): Promise<boolean> {
     livePlan = plan
     wipeBuf = ""
-    if (host.yes && plan.kind !== "wipe") {
+    if (earlyConfirm === false) {
+      earlyConfirm = null
+      mode = "select"
+      livePlan = null
+      requestDraw()
+      return Promise.resolve(false)
+    }
+    if ((host.yes || earlyConfirm === true) && plan.kind !== "wipe") {
+      earlyConfirm = null
       mode = "plan"
       requestDraw()
       return Promise.resolve(true)
     }
+    earlyConfirm = null
     mode = plan.kind === "wipe" ? "wipe" : "plan"
     requestDraw()
     return new Promise((resolve) => {
@@ -623,6 +640,9 @@ export function attachSelectionScreen(
       return
     }
     if (event.type === "plan") {
+      if (earlyConfirm === false) {
+        return
+      }
       livePlan = event.plan
       if (mode === "select") {
         mode = event.plan.kind === "wipe" ? "wipe" : "plan"
@@ -653,6 +673,7 @@ export function attachSelectionScreen(
     }
     syncing = true
     livePlan = null
+    earlyConfirm = null
     progress = null
     rate = null
     report = null
