@@ -12,7 +12,7 @@
  * Corrupt files return a typed error. The parser does not throw.
  */
 
-import { concatBytes } from "./bytes.ts";
+import { concatBytes, readU32, writeU32 } from "./bytes.ts";
 
 export type PlayCountsParseReason =
   | "bad-magic"
@@ -219,16 +219,6 @@ function u32At(bytes: Uint8Array, offset: number): number {
     return 0;
   }
   return readU32(bytes, offset);
-}
-
-function readU32(bytes: Uint8Array, offset: number): number {
-  const view = new DataView(bytes.buffer, bytes.byteOffset + offset, 4);
-  return view.getUint32(0, true);
-}
-
-function writeU32(bytes: Uint8Array, offset: number, value: number): void {
-  const view = new DataView(bytes.buffer, bytes.byteOffset + offset, 4);
-  view.setUint32(0, value, true);
 }
 
 function writeAscii(bytes: Uint8Array, offset: number, text: string): void {
