@@ -1,4 +1,4 @@
-import { readdir, stat } from "node:fs/promises"
+import { readdir, realpath, stat } from "node:fs/promises"
 import { join } from "node:path"
 import { readTrackTags, type TrackTags } from "./tags.ts"
 
@@ -45,32 +45,54 @@ export function isSupportedExtension(extension: string): boolean {
 
 export async function scanLibrary(root: string): Promise<ReadonlyArray<ScannedFile>> {
   const files: ScannedFile[] = []
-  await walk(root, "", files)
+  const visited = new Set<string>()
+  visited.add(await realpath(root))
+  await walk(root, "", files, visited)
   files.sort((left, right) => left.relativePath.localeCompare(right.relativePath))
   return files
 }
 
-async function walk(absDir: string, relDir: string, out: ScannedFile[]): Promise<void> {
+async function walk(
+  absDir: string,
+  relDir: string,
+  out: ScannedFile[],
+  visited: Set<string>,
+): Promise<void> {
   const entries = await readdir(absDir, { withFileTypes: true })
   for (const entry of entries) {
     const relativePath = relDir === "" ? entry.name : `${relDir}/${entry.name}`
     const absPath = join(absDir, entry.name)
-    if (entry.isDirectory()) {
-      await walk(absPath, relativePath, out)
+    let resolved: string
+    try {
+      resolved = await realpath(absPath)
+    } catch {
       continue
     }
-    if (!entry.isFile()) {
+    if (visited.has(resolved)) {
+      continue
+    }
+    visited.add(resolved)
+    let info
+    try {
+      info = await stat(resolved)
+    } catch {
+      continue
+    }
+    if (info.isDirectory()) {
+      await walk(absPath, relativePath, out, visited)
+      continue
+    }
+    if (!info.isFile()) {
       continue
     }
     const extension = extensionOf(relativePath)
     if (!isAudioExtension(extension)) {
       continue
     }
-    const info = await stat(absPath)
     let tags: TrackTags | null = null
     if (isSupportedExtension(extension)) {
       try {
-        const bytes = new Uint8Array(await Bun.file(absPath).arrayBuffer())
+        const bytes = new Uint8Array(await Bun.file(resolved).arrayBuffer())
         tags = readTrackTags(bytes)
       } catch {
         tags = null

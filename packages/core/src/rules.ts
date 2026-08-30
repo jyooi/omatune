@@ -46,7 +46,7 @@ const FAT32_RESERVED = new Set([
 ])
 
 export function normaliseName(value: string): string {
-  return value.trim().normalize("NFC").toLowerCase()
+  return value.trim().normalize("NFC").toUpperCase().toLowerCase()
 }
 
 export function albumIdentity(tags: TrackTags): { albumArtist: string; album: string } {
