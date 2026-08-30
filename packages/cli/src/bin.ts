@@ -1,7 +1,11 @@
 #!/usr/bin/env bun
 import { runMain } from "./main.ts"
 
-const result = await runMain(Bun.argv.slice(2))
+const result = await runMain(Bun.argv.slice(2), undefined, process.env, {
+  stdoutWrite: (text) => {
+    process.stdout.write(text)
+  },
+})
 if (result.stdout.length > 0) {
   await Bun.write(Bun.stdout, result.stdout)
 }

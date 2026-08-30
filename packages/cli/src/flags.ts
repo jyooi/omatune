@@ -13,6 +13,18 @@ export type ParseFailure = {
   message: string
 }
 
+export type RunIo = {
+  stdin?: string
+  stderrWrite?: (text: string) => void
+  stdoutWrite?: (text: string) => void
+}
+
+export type RunResult = {
+  code: 0 | 1 | 2
+  stdout: string
+  stderr: string
+}
+
 const VALUE_FLAGS = new Set(["--device", "--force-model", "--config"])
 const BOOL_FLAGS = new Set(["--json", "--yes", "--no-eject", "--strict"])
 

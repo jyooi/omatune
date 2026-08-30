@@ -326,8 +326,3 @@ name = "Env"
   expect(result.stdout).not.toContain("(Flag)")
 })
 
-test("sync stays refused before change", async () => {
-  const result = await runMain(["sync"], stubLayer, testEnv())
-  expect(result.code).toBe(1)
-  expect(result.stderr).toContain("not implemented")
-})

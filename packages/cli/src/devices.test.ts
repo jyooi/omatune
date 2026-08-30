@@ -93,10 +93,10 @@ test("devices --json with no Devices prints nothing and exits 0", async () => {
   expect(result.stdout).toBe("")
 })
 
-test("sync is refused before change", async () => {
+test("sync without --device is refused before change", async () => {
   const result = await runMain(["sync"])
   expect(result.code).toBe(1)
-  expect(result.stderr).toContain("not implemented")
+  expect(result.stderr).toContain("sync needs --device")
 })
 
 test("bare command refuses when config is missing", async () => {

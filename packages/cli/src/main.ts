@@ -2,18 +2,13 @@ import { ExitCode, listDeviceReports } from "@omatune/core"
 import { fakeLayer, linuxLayer, stubLayer, type Platform } from "@omatune/platform"
 import { runTui } from "@omatune/tui"
 import { Effect, type Layer } from "effect"
-import { parseArgv } from "./flags.ts"
+import { parseArgv, type RunIo, type RunResult } from "./flags.ts"
 import { formatJson, formatTable } from "./format.ts"
 import { runPlan } from "./plan.ts"
 import { runStatus } from "./status.ts"
+import { runSyncCommand } from "./sync.ts"
 
-export type RunResult = {
-  code: 0 | 1 | 2
-  stdout: string
-  stderr: string
-}
-
-const NOT_IMPLEMENTED = new Set(["sync"])
+export type { RunIo, RunResult } from "./flags.ts"
 
 function refused(message: string): RunResult {
   return { code: ExitCode.RefusedBeforeChange, stdout: "", stderr: `${message}\n` }
@@ -34,7 +29,9 @@ export async function runMain(
   argv: ReadonlyArray<string>,
   layer: Layer.Layer<Platform> = defaultLayer(),
   env: NodeJS.ProcessEnv = process.env,
+  io: RunIo = {},
 ): Promise<RunResult> {
+  const platformLayer = layer ?? defaultLayer()
   const parsed = parseArgv(argv)
   if ("message" in parsed) {
     return refused(parsed.message)
@@ -44,7 +41,7 @@ export async function runMain(
     return runTui({
       config: parsed.config,
       device: parsed.device,
-      layer,
+      layer: platformLayer,
       env,
     })
   }
@@ -54,11 +51,11 @@ export async function runMain(
   }
 
   if (parsed.subcommand === "plan") {
-    return runPlan(parsed, layer, env)
+    return runPlan(parsed, platformLayer, env)
   }
 
-  if (NOT_IMPLEMENTED.has(parsed.subcommand)) {
-    return refused(`${parsed.subcommand} is not implemented.`)
+  if (parsed.subcommand === "sync") {
+    return runSyncCommand(parsed, platformLayer, env, io)
   }
 
   if (parsed.subcommand !== "devices") {
@@ -70,7 +67,7 @@ export async function runMain(
       const stdout = parsed.json ? formatJson(reports) : formatTable(reports)
       return { code: ExitCode.Success, stdout, stderr: "" } satisfies RunResult
     }),
-    Effect.provide(layer),
+    Effect.provide(platformLayer),
     Effect.catchAllDefect((defect) =>
       Effect.succeed(
         refused(defect instanceof Error ? defect.message : String(defect)),

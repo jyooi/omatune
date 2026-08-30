@@ -65,23 +65,40 @@ export async function sha256File(path: string): Promise<string> {
   return createHash("sha256").update(bytes).digest("hex")
 }
 
+const HASH_WIDTH = 4
+
 export async function hashesForAdds(
   libraryRoot: string,
   selected: ReadonlyArray<SelectedTrack>,
   ledger: Ledger | null,
 ): Promise<ReadonlyMap<string, string>> {
   const ledgerByPath = new Map((ledger?.tracks ?? []).map((entry) => [entry.libraryPath, entry]))
-  const hashes = new Map<string, string>()
+  const pending: SelectedTrack[] = []
   for (const track of selected) {
     const prior = ledgerByPath.get(track.relativePath)
     const unchanged =
       prior !== undefined && prior.size === track.size && prior.mtime === track.mtimeMs
-    if (unchanged) {
-      continue
+    if (!unchanged) {
+      pending.push(track)
     }
-    hashes.set(track.relativePath, await sha256File(join(libraryRoot, track.relativePath)))
   }
+  const hashes = new Map<string, string>()
+  await runPool(pending, HASH_WIDTH, async (track) => {
+    hashes.set(track.relativePath, await sha256File(join(libraryRoot, track.relativePath)))
+  })
   return hashes
+}
+
+export async function runPool<T>(
+  items: ReadonlyArray<T>,
+  width: number,
+  fn: (item: T) => Promise<void>,
+): Promise<void> {
+  const size = Math.max(1, width)
+  for (let i = 0; i < items.length; i += size) {
+    const slice = items.slice(i, i + size)
+    await Promise.all(slice.map((item) => fn(item)))
+  }
 }
 
 export function artworkHashOf(bytes: Uint8Array | null): string | null {
