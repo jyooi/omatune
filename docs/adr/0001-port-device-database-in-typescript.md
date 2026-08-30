@@ -21,6 +21,11 @@ No low-level language is needed: the work is file IO, a 1.5 MB binary container,
 ## Consequences
 
 - License: MIT holds across the repo. hash58 is a clean-room implementation from the ipodlinux wiki and independent ports, never copied from `itdb_hash58.c`. Its substitution tables are reverse-engineered firmware constants; the file header records that provenance.
-- Test oracle: golden-file tests parse and re-serialise the iTunes-written iTunesDB, ArtworkDB, and Play Counts in `fixtures/device/ipod-classic-120gb/`, byte-compare the output, and recompute hash58 from the USB serial. A dev-only script on Arch runs `extra/libgpod` against omatune's output as a second check. libgpod is never a runtime or CI dependency.
+- Test oracle: golden-file tests parse and serialise the iTunes-written iTunesDB, ArtworkDB, and Play Counts in `fixtures/device/ipod-classic-120gb/`.
+  The tests compare every output byte.
+  The tests compute hash58 from the Fixture serial when that serial is present.
+  The tests do not run when the private Fixture or its serial is absent.
+  A dev-only script on Arch runs `extra/libgpod` against omatune's output as a second check.
+  libgpod is never a runtime or CI dependency.
 - Distribution: one self-contained binary per target (linux-x64, linux-arm64, darwin-arm64, darwin-x64) from `bun build --compile` on GitHub Releases, wrapped by an AUR `-bin` package and a Homebrew tap. Users do not need bun. npm publishing is a possible follow-up.
 - Repo shape: the writer is a bun workspace package inside this monorepo (`packages/device-database`), pure TypeScript with Effect, with its own golden-file test suite, published to npm under MIT once stable. The app depends on it like any other package.
