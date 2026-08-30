@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises"
+import { mkdir, unlink } from "node:fs/promises"
 import { join } from "node:path"
 import {
   parseItunesdb,
@@ -43,6 +43,7 @@ export type ReadBackMessage = {
 export type ReadBackResult = {
   readonly playData: PlayDataFile
   readonly consumedPlayCounts: boolean
+  readonly unmergedPlayCounts: boolean
   readonly changed: boolean
   readonly messages: ReadonlyArray<ReadBackMessage>
   readonly strictFail: string | null
@@ -127,6 +128,7 @@ export async function runPlayDataReadBack(
     return {
       playData,
       consumedPlayCounts: false,
+      unmergedPlayCounts: false,
       changed: false,
       messages: [{ text: FOREIGN_READ_BACK_SKIP, level: "info" }],
       strictFail: null,
@@ -137,6 +139,7 @@ export async function runPlayDataReadBack(
     return {
       playData,
       consumedPlayCounts: false,
+      unmergedPlayCounts: false,
       changed: false,
       messages: [],
       strictFail: null,
@@ -148,6 +151,7 @@ export async function runPlayDataReadBack(
     return {
       playData,
       consumedPlayCounts: true,
+      unmergedPlayCounts: false,
       changed: false,
       messages: [],
       strictFail: null,
@@ -163,6 +167,7 @@ export async function runPlayDataReadBack(
     return {
       playData,
       consumedPlayCounts: false,
+      unmergedPlayCounts: false,
       changed: false,
       messages,
       strictFail: request.strict ? text : null,
@@ -173,6 +178,7 @@ export async function runPlayDataReadBack(
     return {
       playData,
       consumedPlayCounts: false,
+      unmergedPlayCounts: true,
       changed: false,
       messages: [],
       strictFail: null,
@@ -186,6 +192,7 @@ export async function runPlayDataReadBack(
     return {
       playData,
       consumedPlayCounts: false,
+      unmergedPlayCounts: true,
       changed: false,
       messages: [],
       strictFail: null,
@@ -231,6 +238,7 @@ export async function runPlayDataReadBack(
   return {
     playData: next,
     consumedPlayCounts: true,
+    unmergedPlayCounts: false,
     changed,
     messages: [],
     strictFail: null,
@@ -266,10 +274,39 @@ function echoOf(entry: LedgerEntry | undefined): WrittenEcho | undefined {
   }
 }
 
-async function copyCorruptPlayCounts(request: ReadBackRequest, bytes: Uint8Array): Promise<string> {
-  const dir = join(request.dataDir, "read-back-failed")
+export function unmergedPlayCountsMovedMessage(path: string): string {
+  return `Play Counts could not be merged. Moved to ${path}.`
+}
+
+export async function copyPlayCountsAside(
+  dataDir: string,
+  serial: string,
+  now: number,
+  bytes: Uint8Array,
+): Promise<string> {
+  const dir = join(dataDir, "read-back-failed")
   await mkdir(dir, { recursive: true })
-  const path = join(dir, `${request.serial}-${request.now}.bin`)
+  const path = join(dir, `${serial}-${now}.bin`)
   await Bun.write(path, bytes)
   return path
+}
+
+export async function moveUnmergedPlayCounts(
+  dataDir: string,
+  serial: string,
+  now: number,
+  mountPoint: string,
+): Promise<string | null> {
+  const playCountsPath = join(mountPoint, PLAY_COUNTS)
+  if (!(await pathExists(playCountsPath))) {
+    return null
+  }
+  const bytes = new Uint8Array(await Bun.file(playCountsPath).arrayBuffer())
+  const path = await copyPlayCountsAside(dataDir, serial, now, bytes)
+  await unlink(playCountsPath)
+  return path
+}
+
+async function copyCorruptPlayCounts(request: ReadBackRequest, bytes: Uint8Array): Promise<string> {
+  return copyPlayCountsAside(request.dataDir, request.serial, request.now, bytes)
 }

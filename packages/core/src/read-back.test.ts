@@ -137,6 +137,7 @@ test("absent iTunesDB does not consume Play Counts", async () => {
     emptyPlayData(),
   )
   expect(result.consumedPlayCounts).toBe(false)
+  expect(result.unmergedPlayCounts).toBe(true)
   expect(result.changed).toBe(false)
 })
 
@@ -160,6 +161,7 @@ test("unreadable iTunesDB does not consume Play Counts", async () => {
     emptyPlayData(),
   )
   expect(result.consumedPlayCounts).toBe(false)
+  expect(result.unmergedPlayCounts).toBe(true)
   expect(result.changed).toBe(false)
 })
 

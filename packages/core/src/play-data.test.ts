@@ -178,6 +178,7 @@ test("playDataNeedsWriteback is true when host counts differ from the Ledger", (
       ledger,
     ),
   ).toBe(false)
+  expect(playDataNeedsWriteback(emptyPlayData(), ledger)).toBe(false)
 })
 
 test("Adoption match uses the file-name hash prefix", () => {

@@ -61,7 +61,9 @@ import {
 import {
   FOREIGN_READ_BACK_SKIP,
   countPlayCountsEntries,
+  moveUnmergedPlayCounts,
   runPlayDataReadBack,
+  unmergedPlayCountsMovedMessage,
   type ReadBackResult,
 } from "./read-back.ts"
 
@@ -451,8 +453,19 @@ async function runPipeline(
     const unsigned = serializeSignedLayout(dbTracks)
     const signed = signItunesdbForFamily(unsigned, ctx.serial, ctx.family)
     await writeFileAtomic(join(ctx.mountPoint, ITUNESDB), signed)
-    if (await pathExists(join(ctx.mountPoint, PLAY_COUNTS))) {
-      await unlink(join(ctx.mountPoint, PLAY_COUNTS))
+    if (readBack.consumedPlayCounts) {
+      if (await pathExists(join(ctx.mountPoint, PLAY_COUNTS))) {
+        await unlink(join(ctx.mountPoint, PLAY_COUNTS))
+      }
+    } else if (readBack.unmergedPlayCounts) {
+      const failed = await moveUnmergedPlayCounts(ctx.dataDir, ctx.serial, now, ctx.mountPoint)
+      if (failed) {
+        await emit({
+          type: "message",
+          text: unmergedPlayCountsMovedMessage(failed),
+          level: "warning",
+        })
+      }
     }
     await writeFileAtomic(
       join(ctx.mountPoint, OWNER_JSON),

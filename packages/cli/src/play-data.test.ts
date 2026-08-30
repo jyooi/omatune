@@ -10,6 +10,7 @@ const SERIAL_A = "aaaaaaaaaaaaaaaa"
 const SERIAL_B = "bbbbbbbbbbbbbbbb"
 const LIBRARY = join(import.meta.dir, "../../../fixtures/audio/library")
 const TRACK = "tone-suite/01-pregap.mp3"
+const TRACK_TWO = "tone-suite/02-postgap.mp3"
 
 function testEnv(dataHome: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env }
@@ -37,16 +38,14 @@ name = "B"
   )
 }
 
-async function writeSelection(dir: string, serial: string): Promise<void> {
+async function writeSelection(dir: string, serial: string, paths: string[] = [TRACK]): Promise<void> {
   await mkdir(join(dir, "devices", serial), { recursive: true })
-  await writeFile(
-    join(dir, "devices", serial, "selection.toml"),
-    `version = 1
+  const includes = paths.map((path) => `[[include]]
+path = ${JSON.stringify(path)}
+`).join("\n")
+  await writeFile(join(dir, "devices", serial, "selection.toml"), `version = 1
 
-[[include]]
-path = ${JSON.stringify(TRACK)}
-`,
-  )
+${includes}`)
 }
 
 function volume(fake: string, serial: string): string {
@@ -243,6 +242,45 @@ test("same Play Counts bytes do not merge twice", async () => {
   const entry = Object.values(host.tracks)[0]
   expect(entry?.playCount).toBe(2)
   expect(entry?.skipCount).toBe(1)
+})
+
+test("unmerged Play Counts is moved aside at commit", async () => {
+  const dir = await makeDir("omatune-play-unmerged-")
+  const fake = await makeDir("omatune-play-fake-")
+  const dataHome = await makeDir("omatune-play-data-")
+  await writeConfig(dir)
+  await writeSelection(dir, SERIAL_A)
+  await emptyClassic(fake, SERIAL_A)
+  expect((await sync(dir, fake, dataHome, SERIAL_A)).code).toBe(0)
+  const entries = [
+    { playCount: 2, skipCount: 1, rating: 80, lastPlayed: 100, lastSkipped: 90, bookmark: 7 },
+  ]
+  const bytes = encodePlayCounts(entries)
+  const playCounts = join(volume(fake, SERIAL_A), "iPod_Control", "iTunes", "Play Counts")
+  await Bun.write(playCounts, bytes)
+  await writeFile(join(volume(fake, SERIAL_A), "iPod_Control", "iTunes", "iTunesDB"), "not-mhbd")
+  await writeSelection(dir, SERIAL_A, [TRACK, TRACK_TWO])
+  const result = await sync(dir, fake, dataHome, SERIAL_A)
+  expect(result.code).toBe(0)
+  expect(result.stdout).toContain("Play Counts could not be merged")
+  expect(await Bun.file(playCounts).exists()).toBe(false)
+  const failedDir = join(dataHome, "omatune", "read-back-failed")
+  const copies: string[] = []
+  for await (const file of new Bun.Glob("*.bin").scan({ cwd: failedDir, onlyFiles: true })) {
+    copies.push(file)
+  }
+  expect(copies).toHaveLength(1)
+  expect(copies[0]?.startsWith(`${SERIAL_A}-`)).toBe(true)
+  expect(Buffer.from(await Bun.file(join(failedDir, copies[0] ?? "")).arrayBuffer())).toEqual(
+    Buffer.from(bytes),
+  )
+  const hostFile = playDataPath(join(dataHome, "omatune"))
+  if (await Bun.file(hostFile).exists()) {
+    const host = JSON.parse(await Bun.file(hostFile).text()) as {
+      tracks: Record<string, { playCount: number }>
+    }
+    expect(Object.values(host.tracks).some((entry) => entry.playCount === 2)).toBe(false)
+  }
 })
 
 test("Echo keeps rating, last played, and bookmark written by the last Sync", async () => {

@@ -104,13 +104,16 @@ export function hashPlayCountsBytes(bytes: Uint8Array): string {
 export function playDataNeedsWriteback(playData: PlayDataFile, ledger: Ledger | null): boolean {
   for (const entry of ledger?.tracks ?? []) {
     const host = playData.tracks[entry.sha256]
+    if (!host) {
+      continue
+    }
     if (
-      (host?.playCount ?? 0) !== (entry.writtenPlayCount ?? 0) ||
-      (host?.skipCount ?? 0) !== (entry.writtenSkipCount ?? 0) ||
-      (host?.rating ?? 0) !== (entry.writtenRating ?? 0) ||
-      (host?.lastPlayed ?? 0) !== (entry.lastPlayed ?? 0) ||
-      (host?.lastSkipped ?? 0) !== (entry.writtenLastSkipped ?? 0) ||
-      (host?.bookmark ?? 0) !== (entry.bookmark ?? 0)
+      host.playCount !== (entry.writtenPlayCount ?? 0) ||
+      host.skipCount !== (entry.writtenSkipCount ?? 0) ||
+      host.rating !== (entry.writtenRating ?? 0) ||
+      host.lastPlayed !== (entry.lastPlayed ?? 0) ||
+      host.lastSkipped !== (entry.writtenLastSkipped ?? 0) ||
+      host.bookmark !== (entry.bookmark ?? 0)
     ) {
       return true
     }
