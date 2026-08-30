@@ -1,4 +1,5 @@
 .lavish/
 node_modules/
 dist/
-fixtures/device
+fixtures/device/ipod-classic-120gb
+fixtures/device/ipod-classic-120gb/

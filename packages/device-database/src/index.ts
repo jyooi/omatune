@@ -118,3 +118,22 @@ export {
   type ArtworkImageSpec,
   type ArtworkThumbSpec,
 } from "./artwork-write.ts";
+export {
+  FAKE_SERIAL,
+  pathPlaceholder,
+  placeholderText,
+  remapPersistentId,
+  scrubArtworkdbBytes,
+  scrubItunesdbBytes,
+  scrubIthmb,
+  scrubMount,
+  signScrubbedItunesdb,
+} from "./scrub.ts";
+export {
+  buildSyntheticItunesdb,
+  dbidForPath,
+  writeSyntheticFixture,
+  type Manifest,
+  type ManifestTrack,
+  type SyntheticTrack,
+} from "./synthetic.ts";

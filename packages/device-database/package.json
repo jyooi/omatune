@@ -7,6 +7,8 @@
   },
   "scripts": {
     "generate": "bun scripts/generate-model-table.ts",
+    "scrub": "bun src/scrub-cli.ts",
+    "write-synthetic": "bun scripts/write-synthetic.ts",
     "build": "bun run generate && bun build src/index.ts --outdir dist --target bun",
     "test": "bun test"
   }

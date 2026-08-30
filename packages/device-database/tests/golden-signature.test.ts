@@ -9,59 +9,72 @@ import {
   lookupByLibgpodKey,
   signItunesdbForFamily,
 } from "../src/index.ts";
+import { goldenCases, itunesdbPath } from "./fixture-paths.ts";
 
-const packageRoot = join(import.meta.dir, "..");
-const fixtureDir = join(
-  packageRoot,
-  "..",
-  "..",
-  "fixtures",
-  "device",
-  "ipod-classic-120gb",
-);
-const fixturePath = join(fixtureDir, "iTunes", "iTunesDB");
-const fixturePresent = existsSync(fixturePath);
-const serial = fixturePresent ? loadFixtureSerial(fixtureDir) : null;
-const canSign = fixturePresent && serial !== null;
-const roundTripTitle = canSign
-  ? "recomputes the Fixture hash58 and keeps the 0x72 area"
-  : "recomputes the Fixture hash58 and keeps the 0x72 area (skipped: private Fixture serial is absent)";
-const changedTitle = canSign
-  ? "a modified Fixture iTunesDB produces a different hash58"
-  : "a modified Fixture iTunesDB produces a different hash58 (skipped: private Fixture serial is absent)";
+function serialFor(fixture: { dir: string; serial: string | null }): string | null {
+  if (fixture.serial) {
+    return fixture.serial;
+  }
+  return loadFixtureSerial(fixture.dir);
+}
+
+const cases = goldenCases().filter((fixture) => serialFor(fixture) !== null);
+const skip = cases.length === 0;
 
 describe("S2 golden hash58", () => {
-  test.skipIf(!canSign)(roundTripTitle, async () => {
-    const classic = lookupByLibgpodKey("CLASSIC_2");
-    if (!classic || serial === null) {
-      throw new Error("missing classic family or serial");
-    }
-    const bytes = await Bun.file(fixturePath).bytes();
-    const signed = signItunesdbForFamily(bytes, serial, classic);
-    expect(signed.slice(HASH58_OFFSET, HASH58_OFFSET + HASH58_LENGTH)).toEqual(
-      bytes.slice(HASH58_OFFSET, HASH58_OFFSET + HASH58_LENGTH),
-    );
-    expect(signed.slice(HASH72_OFFSET, HASH72_OFFSET + HASH72_LENGTH)).toEqual(
-      bytes.slice(HASH72_OFFSET, HASH72_OFFSET + HASH72_LENGTH),
-    );
-  });
+  test.skipIf(skip)(
+    skip
+      ? "recomputes Fixture hash58 (skipped: no Fixture serial is present)"
+      : "recomputes Fixture hash58 and keeps the 0x72 area",
+    async () => {
+      const classic = lookupByLibgpodKey("CLASSIC_2");
+      if (!classic) {
+        throw new Error("missing classic family");
+      }
+      for (const fixture of cases) {
+        const serial = serialFor(fixture);
+        if (serial === null) {
+          throw new Error(`missing serial for ${fixture.name}`);
+        }
+        const bytes = await Bun.file(itunesdbPath(fixture.dir)).bytes();
+        const signed = signItunesdbForFamily(bytes, serial, classic);
+        expect(signed.slice(HASH58_OFFSET, HASH58_OFFSET + HASH58_LENGTH)).toEqual(
+          bytes.slice(HASH58_OFFSET, HASH58_OFFSET + HASH58_LENGTH),
+        );
+        expect(signed.slice(HASH72_OFFSET, HASH72_OFFSET + HASH72_LENGTH)).toEqual(
+          bytes.slice(HASH72_OFFSET, HASH72_OFFSET + HASH72_LENGTH),
+        );
+      }
+    },
+  );
 
-  test.skipIf(!canSign)(changedTitle, async () => {
-    const classic = lookupByLibgpodKey("CLASSIC_2");
-    if (!classic || serial === null) {
-      throw new Error("missing classic family or serial");
-    }
-    const bytes = await Bun.file(fixturePath).bytes();
-    const changed = bytes.slice();
-    const poke = HASH58_OFFSET + HASH58_LENGTH + 16;
-    const prior = changed[poke] ?? 0;
-    changed[poke] = prior ^ 0x01;
-    const original = signItunesdbForFamily(bytes, serial, classic);
-    const other = signItunesdbForFamily(changed, serial, classic);
-    expect(other.slice(HASH58_OFFSET, HASH58_OFFSET + HASH58_LENGTH)).not.toEqual(
-      original.slice(HASH58_OFFSET, HASH58_OFFSET + HASH58_LENGTH),
-    );
-  });
+  test.skipIf(skip)(
+    skip
+      ? "a modified Fixture iTunesDB produces a different hash58 (skipped: no Fixture serial is present)"
+      : "a modified Fixture iTunesDB produces a different hash58",
+    async () => {
+      const classic = lookupByLibgpodKey("CLASSIC_2");
+      if (!classic) {
+        throw new Error("missing classic family");
+      }
+      for (const fixture of cases) {
+        const serial = serialFor(fixture);
+        if (serial === null) {
+          throw new Error(`missing serial for ${fixture.name}`);
+        }
+        const bytes = await Bun.file(itunesdbPath(fixture.dir)).bytes();
+        const changed = bytes.slice();
+        const poke = HASH58_OFFSET + HASH58_LENGTH + 16;
+        const prior = changed[poke] ?? 0;
+        changed[poke] = prior ^ 0x01;
+        const original = signItunesdbForFamily(bytes, serial, classic);
+        const other = signItunesdbForFamily(changed, serial, classic);
+        expect(other.slice(HASH58_OFFSET, HASH58_OFFSET + HASH58_LENGTH)).not.toEqual(
+          original.slice(HASH58_OFFSET, HASH58_OFFSET + HASH58_LENGTH),
+        );
+      }
+    },
+  );
 });
 
 function loadFixtureSerial(dir: string): string | null {
