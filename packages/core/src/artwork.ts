@@ -27,6 +27,16 @@ import type { SelectedTrack } from "./rules.ts"
 export { ARTWORK_DIR, ARTWORKDB }
 
 const FIRST_IMAGE_ID = 0x64
+const MHFD_HEADER = 132
+const MHSD_HEADER = 96
+const LIST_HEADER = 92
+const MHII_HEADER = 152
+const MHNI_HEADER = 76
+const MHIF_HEADER = 124
+const MHOD_HEADER = 24
+const MHOD_BODY_PREFIX = 16
+const NAME_UTF16_BYTES = 64
+const RESERVE_ALIGN = 512
 
 export type ArtworkTrack = {
   readonly libraryPath: string
@@ -36,9 +46,11 @@ export type ArtworkTrack = {
   readonly artworkBytes: Uint8Array | null
 }
 
+export type ArtworkSkipReason = DecodeImageFailure["reason"] | "disk_full"
+
 export type ArtworkSkip = {
   readonly path: string
-  readonly reason: DecodeImageFailure["reason"]
+  readonly reason: ArtworkSkipReason
 }
 
 export type ArtworkWriteInput = {
@@ -47,6 +59,7 @@ export type ArtworkWriteInput = {
   readonly tracks: ReadonlyArray<ArtworkTrack>
   readonly cacheDir: string
   readonly priorHashes?: ReadonlyMap<string, string | null>
+  readonly spaceRemaining?: number
 }
 
 export type ArtworkWriteResult = {
@@ -54,6 +67,21 @@ export type ArtworkWriteResult = {
   readonly hashes: ReadonlyMap<string, string | null>
   readonly skipped: ReadonlyArray<ArtworkSkip>
   readonly wrote: boolean
+}
+
+export function artworkIthmbAlbumBytes(rows: ReadonlyArray<ArtworkFormatRow>): number {
+  return rows.reduce((sum, row) => sum + row.blockBytes, 0)
+}
+
+export function artworkDbReserveBytes(imageCount: number, formatCount: number): number {
+  const count = Math.max(0, Math.floor(imageCount))
+  const formats = Math.max(0, Math.floor(formatCount))
+  const nameMhod = MHOD_HEADER + MHOD_BODY_PREFIX + NAME_UTF16_BYTES
+  const perThumb = MHOD_HEADER + MHNI_HEADER + nameMhod
+  const perImage = MHII_HEADER + perThumb * formats
+  const fixed =
+    MHFD_HEADER + 3 * MHSD_HEADER + 3 * LIST_HEADER + MHIF_HEADER * formats
+  return roundUp(fixed, RESERVE_ALIGN) + roundUp(perImage, RESERVE_ALIGN) * count
 }
 
 export function artworkCacheDir(env: NodeJS.ProcessEnv = process.env): string {
@@ -107,6 +135,9 @@ export async function writeDeviceArtwork(input: ArtworkWriteInput): Promise<Artw
   const groups = albumGroups(input.tracks)
   const dbidsWithArtwork = new Set<string>()
   const failed = new Set<string>()
+  let remaining =
+    input.spaceRemaining === undefined ? Number.POSITIVE_INFINITY : Math.max(0, input.spaceRemaining)
+  let reservedImages = 0
   const images: Array<{
     dbid: bigint
     thumbs: Array<{
@@ -150,6 +181,23 @@ export async function writeDeviceArtwork(input: ArtworkWriteInput): Promise<Artw
     if (!blocks) {
       continue
     }
+    const ready = group.tracks.filter(
+      (track) =>
+        track.artworkBytes !== null &&
+        track.artworkBytes.byteLength > 0 &&
+        !failed.has(track.libraryPath),
+    )
+    const dbBefore = artworkDbReserveBytes(reservedImages, rows.length)
+    const dbAfter = artworkDbReserveBytes(reservedImages + ready.length, rows.length)
+    const cost = artworkIthmbAlbumBytes(rows) + (dbAfter - dbBefore)
+    if (cost > remaining) {
+      for (const track of ready) {
+        skipped.push({ path: track.libraryPath, reason: "disk_full" })
+      }
+      continue
+    }
+    remaining -= cost
+    reservedImages += ready.length
     const albumOffsets = new Map<number, number>()
     for (const row of rows) {
       const block = blocks.get(row.id)
@@ -184,6 +232,12 @@ export async function writeDeviceArtwork(input: ArtworkWriteInput): Promise<Artw
           fileName: ithmbName(row.id),
         })),
       })
+    }
+  }
+  if (images.length === 0 && input.spaceRemaining !== undefined) {
+    const emptyCost = artworkDbReserveBytes(0, rows.length)
+    if (emptyCost > Math.max(0, input.spaceRemaining) || skipped.some((skip) => skip.reason === "disk_full")) {
+      return { dbidsWithArtwork, hashes, skipped, wrote: false }
     }
   }
   const db = buildArtworkdb(
@@ -343,4 +397,11 @@ function concat(parts: ReadonlyArray<Uint8Array>): Uint8Array {
     offset += part.byteLength
   }
   return out
+}
+
+function roundUp(value: number, unit: number): number {
+  if (value <= 0) {
+    return 0
+  }
+  return Math.ceil(value / unit) * unit
 }

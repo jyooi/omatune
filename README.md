@@ -52,6 +52,8 @@ bun run omatune sync --device <serial>
 
 The command asks `Sync now? [y/N]`.
 `--yes` does not ask except on a wipe.
+A wipe asks `Wipe and Sync?` and needs the word wipe.
+
 `--json` prints the plan, messages, one progress object per line, and the report.
 `--no-eject` leaves the Device mounted.
 `--strict` refuses the Sync when Skipped Tracks exist or Play Counts is corrupt.

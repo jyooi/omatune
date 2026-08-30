@@ -1,4 +1,4 @@
-import { mkdir, open, readdir, rename, rm, unlink } from "node:fs/promises"
+import { mkdir, open, readdir, rename, rm, stat, unlink } from "node:fs/promises"
 import { dirname, join } from "node:path"
 
 export const COPY_CHUNK_BYTES = 4 * 1024 * 1024
@@ -97,4 +97,22 @@ export async function writeFileAtomic(path: string, bytes: Uint8Array | string):
 
 export async function pathExists(path: string): Promise<boolean> {
   return Bun.file(path).exists()
+}
+
+export async function presentWithSize(path: string, size: number): Promise<boolean> {
+  try {
+    const info = await stat(path)
+    return info.isFile() && info.size === size
+  } catch {
+    return false
+  }
+}
+
+export async function fileSizeOrZero(path: string): Promise<number> {
+  try {
+    const info = await stat(path)
+    return info.isFile() ? info.size : 0
+  } catch {
+    return 0
+  }
 }

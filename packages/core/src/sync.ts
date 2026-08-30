@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto"
 import { mkdir, unlink } from "node:fs/promises"
 import { join } from "node:path"
 import {
@@ -11,16 +10,19 @@ import { Context, Data, Effect, Layer, Stream } from "effect"
 import type { AppConfig } from "./config.ts"
 import { formatConfigIssue, loadConfigDir, loadSelection } from "./config.ts"
 import { toDeviceReport, type DeviceReport } from "./device-report.ts"
+import { adoptLedger } from "./adopt.ts"
+import { placeAdd } from "./copy-adds.ts"
 import {
   HASH_AHEAD,
   ITUNESDB,
   OWNER_JSON,
   PLAY_COUNTS,
   SYNCING_MARKER,
-  copyFileChunked,
   deleteDeviceFile,
+  fileSizeOrZero,
   listMusicFiles,
   pathExists,
+  wipeIpodControl,
   writeFileAtomic,
 } from "./device-fs.ts"
 import { ExitCode } from "./exit-code.ts"
@@ -32,16 +34,19 @@ import {
   resolveForceModel,
   runPool,
   sha256File,
+  type PlannedTrack,
   type SyncPlan,
 } from "./plan.ts"
 import {
   type Ledger,
   type LedgerEntry,
+  freshDbid,
   loadLedger,
   writeLedgerAtomic,
 } from "./ledger.ts"
 import { acquireSerialLock, releaseSerialLock } from "./lock.ts"
-import { evaluateSelection, type SelectedTrack } from "./rules.ts"
+import { reconcilePlanWithDevice } from "./resume-plan.ts"
+import { evaluateSelection, type SelectedTrack, type SkippedTrack } from "./rules.ts"
 import { scanLibrary } from "./scan.ts"
 import {
   artworkCacheDir,
@@ -50,7 +55,11 @@ import {
   type ArtworkSkip,
   type ArtworkWriteResult,
 } from "./artwork.ts"
-import { serializeSignedLayout, tracksForDatabase } from "./itunesdb-write.ts"
+import {
+  itunesdbReserveBytes,
+  serializeSignedLayout,
+  tracksForDatabase,
+} from "./itunesdb-write.ts"
 import {
   loadPlayData,
   playDataNeedsWriteback,
@@ -59,7 +68,6 @@ import {
   type PlayDataFile,
 } from "./play-data.ts"
 import {
-  FOREIGN_READ_BACK_SKIP,
   countPlayCountsEntries,
   moveUnmergedPlayCounts,
   runPlayDataReadBack,
@@ -186,25 +194,20 @@ async function executeLocked(
       code: ExitCode.RefusedBeforeChange,
     })
   }
-  if (prepared.plan.kind === "wipe") {
-    await emit({ type: "message", text: FOREIGN_READ_BACK_SKIP, level: "info" })
-    throw new SyncError({
-      message: "This Device is foreign. omatune refuses to Sync it.",
-      code: ExitCode.RefusedBeforeChange,
-    })
-  }
-  if (prepared.plan.kind === "adoption") {
-    throw new SyncError({
-      message: "The Ledger is missing. omatune refuses to Sync this Device.",
-      code: ExitCode.RefusedBeforeChange,
-    })
-  }
   const confirmed = await request.confirm(prepared.plan)
   if (!confirmed) {
     throw new SyncError({
       message: "Sync cancelled.",
       code: ExitCode.RefusedBeforeChange,
     })
+  }
+  if (prepared.plan.kind === "wipe") {
+    await writeSyncingMarker(
+      prepared.mountPoint,
+      prepared.serial,
+      await Effect.runPromise(platform.now),
+    )
+    await wipeIpodControl(prepared.mountPoint)
   }
   await runPipeline(request, prepared, platform, emit)
 }
@@ -302,31 +305,43 @@ async function prepareSync(
   }
   const files = await scanLibrary(loaded.config.library)
   const { selected, skipped } = evaluateSelection(files, selection.value)
-  const hashes = await hashesForAdds(loaded.config.library, selected, ledgerResult.value)
   const kind = planKind({ ownerState: report.ownerState, hasLedger: ledgerResult.value !== null })
+  const hashes = await hashesForAdds(
+    loaded.config.library,
+    selected,
+    kind === "wipe" || kind === "adoption" ? null : ledgerResult.value,
+  )
+  const ledger =
+    kind === "adoption"
+      ? await adoptLedger({
+          serial,
+          libraryRoot: loaded.config.library,
+          mountPoint: info.mountPoint,
+          selected,
+          hashes,
+          now: await Effect.runPromise(platform.now),
+        })
+      : ledgerResult.value
   const playCountsPending =
     kind === "wipe" ? 0 : await countPlayCountsEntries(info.mountPoint)
-  const plan = buildPlan({
+  let plan = buildPlan({
     kind,
     selected,
     skipped,
-    ledger: ledgerResult.value,
+    ledger: kind === "wipe" ? null : ledger,
     hashes,
     freeBytes: report.freeSpaceBytes,
     forceModel: request.forceModel,
     playCountsPending,
   })
-  if (plan.freeSpaceAfter < 0) {
-    throw new SyncError({
-      message: `Selection does not fit. Needs ${plan.bytesNeeded} bytes. Device has ${report.freeSpaceBytes} bytes free.`,
-      code: ExitCode.RefusedBeforeChange,
-    })
+  if (await pathExists(join(info.mountPoint, SYNCING_MARKER))) {
+    plan = await reconcilePlanWithDevice(plan, info.mountPoint)
   }
   return {
     config: loaded.config,
     serial,
     selected,
-    ledger: ledgerResult.value,
+    ledger,
     hashes,
     plan,
     report,
@@ -356,26 +371,67 @@ async function runPipeline(
   const named = new Set([...ctx.plan.keep, ...ctx.plan.add].map((track) => track.devicePath))
   const music = await listMusicFiles(ctx.mountPoint)
   const extra = music.filter((path) => !named.has(path))
+  const marker = join(ctx.mountPoint, SYNCING_MARKER)
+  const resume = await pathExists(marker)
+  const hasItunesdb = await pathExists(join(ctx.mountPoint, ITUNESDB))
   const noop =
+    ctx.plan.kind !== "adoption" &&
     !readBack.consumedPlayCounts &&
     !playDataNeedsWriteback(readBack.playData, ctx.ledger) &&
     ctx.plan.add.length === 0 &&
     ctx.plan.remove.length === 0 &&
-    extra.length === 0
+    extra.length === 0 &&
+    !resume &&
+    hasItunesdb
+  let addedCount = ctx.plan.add.length
+  let skippedCount = ctx.plan.skipped.length
+  let diskFull = false
   let artworkSkipped: ReadonlyArray<ArtworkSkip> = []
-  if (!noop) {
-    const marker = join(ctx.mountPoint, SYNCING_MARKER)
-    await writeFileAtomic(
-      marker,
-      `${JSON.stringify({ serial: ctx.serial, startedAt: await Effect.runPromise(platform.now) })}\n`,
-    )
+  if (noop) {
+    await deleteDeviceFile(ctx.mountPoint, SYNCING_MARKER)
+    await emitPhase(emit, "delete", 0, 0, 0, 0, null)
+    await emitPhase(emit, "copy", 0, 0, 0, 0, null)
+    await emitPhase(emit, "artwork", 0, 0, 0, 0, null)
+    if (ctx.ledger) {
+      const priorHashes = new Map(
+        ctx.ledger.tracks.map((entry) => [entry.libraryPath, entry.artworkHash]),
+      )
+      const artwork = await runArtwork(ctx, ctx.ledger, priorHashes)
+      artworkSkipped = artwork.skipped
+      if (artwork.wrote) {
+        const selectedByPath = new Map(ctx.selected.map((track) => [track.relativePath, track]))
+        await mkdir(join(ctx.mountPoint, "iPod_Control", "iTunes"), { recursive: true })
+        const dbTracks = tracksForDatabase(
+          ctx.ledger.tracks,
+          selectedByPath,
+          artwork.dbidsWithArtwork,
+          playDataMap(readBack.playData),
+        )
+        await emitPhase(emit, "database", 0, 1, 0, 1, "iTunesDB")
+        const unsigned = serializeSignedLayout(dbTracks)
+        const signed = signItunesdbForFamily(unsigned, ctx.serial, ctx.family)
+        await writeFileAtomic(join(ctx.mountPoint, ITUNESDB), signed)
+        if (ledgerArtworkChanged(ctx.ledger, artwork.hashes)) {
+          await writeLedgerAtomic(ctx.config.dir, withArtworkHashes(ctx.ledger, artwork.hashes))
+        }
+        await emitPhase(emit, "database", 1, 1, 1, 1, null)
+      } else {
+        await emitPhase(emit, "database", 0, 0, 0, 0, null)
+      }
+    } else {
+      await emitPhase(emit, "database", 0, 0, 0, 0, null)
+    }
+  } else {
+    await writeSyncingMarker(ctx.mountPoint, ctx.serial, await Effect.runPromise(platform.now))
     const deletes = uniquePaths([
       ...ctx.plan.remove.map((track) => track.devicePath),
       ...extra,
     ])
     let filesDone = 0
+    let spaceRemaining = ctx.report.freeSpaceBytes
     for (const path of deletes) {
       await emitPhase(emit, "delete", 0, 0, filesDone, deletes.length, path)
+      spaceRemaining += await fileSizeOrZero(join(ctx.mountPoint, path))
       await deleteDeviceFile(ctx.mountPoint, path)
       filesDone += 1
       await yieldFiber()
@@ -384,6 +440,14 @@ async function runPipeline(
 
     const hashes = new Map(ctx.hashes)
     const add = ctx.plan.add
+    const dbReserve = itunesdbReserveBytes(ctx.plan.keep.length + add.length)
+    if (ctx.plan.kind === "wipe") {
+      const live = await deviceFreeBytes(platform, ctx.serial)
+      if (live !== null) {
+        spaceRemaining = live
+      }
+    }
+    spaceRemaining = Math.max(0, spaceRemaining - dbReserve)
     const pending = new Map<string, Promise<string>>()
     const ensureHash = (libraryPath: string): Promise<string> => {
       const known = hashes.get(libraryPath)
@@ -414,6 +478,8 @@ async function runPipeline(
     let copied = 0
     let bytesDone = 0
     const bytesTotal = ctx.plan.bytesNeeded
+    const presentAdds: PlannedTrack[] = []
+    const extraSkipped: SkippedTrack[] = []
     try {
       for (let i = 0; i < add.length; i += 1) {
         prefetch(i)
@@ -423,7 +489,26 @@ async function runPipeline(
         }
         await emitPhase(emit, "copy", bytesDone, bytesTotal, copied, add.length, track.path)
         await ensureHash(track.path)
-        await copyFileChunked(join(ctx.config.library, track.path), join(ctx.mountPoint, track.devicePath))
+        if (diskFull) {
+          extraSkipped.push({ path: track.path, reason: "disk_full" })
+          continue
+        }
+        const live = await deviceFreeBytes(platform, ctx.serial)
+        const placed = await placeAdd({
+          source: join(ctx.config.library, track.path),
+          dest: join(ctx.mountPoint, track.devicePath),
+          size: track.size,
+          resume,
+          spaceRemaining,
+          liveFreeBytes: live === null ? null : Math.max(0, live - dbReserve),
+        })
+        if (placed.status === "disk-full") {
+          diskFull = true
+          extraSkipped.push({ path: track.path, reason: "disk_full" })
+          continue
+        }
+        spaceRemaining = placed.spaceRemaining
+        presentAdds.push(track)
         copied += 1
         bytesDone += track.size
         await yieldFiber()
@@ -431,12 +516,19 @@ async function runPipeline(
     } finally {
       await hashing
     }
+    addedCount = presentAdds.length
+    skippedCount = ctx.plan.skipped.length + extraSkipped.length
     await emitPhase(emit, "copy", bytesDone, bytesTotal, copied, add.length, null)
 
     const now = await Effect.runPromise(platform.now)
-    const nextLedger = buildNextLedger(ctx, hashes, now, readBack.playData)
+    const nextLedger = buildNextLedger(ctx, hashes, now, readBack.playData, presentAdds)
     await emitPhase(emit, "artwork", 0, 0, 0, 0, null)
-    const artwork = await runArtwork(ctx, nextLedger)
+    const liveAfterCopy = await deviceFreeBytes(platform, ctx.serial)
+    const artworkBudget =
+      liveAfterCopy === null
+        ? spaceRemaining
+        : Math.min(spaceRemaining, Math.max(0, liveAfterCopy - dbReserve))
+    const artwork = await runArtwork(ctx, nextLedger, undefined, artworkBudget)
     artworkSkipped = artwork.skipped
     const artworkDbids = artwork.dbidsWithArtwork
 
@@ -474,39 +566,6 @@ async function runPipeline(
     await writeLedgerAtomic(ctx.config.dir, nextLedger)
     await deleteDeviceFile(ctx.mountPoint, SYNCING_MARKER)
     await emitPhase(emit, "database", 1, 1, 1, 1, null)
-  } else {
-    await emitPhase(emit, "delete", 0, 0, 0, 0, null)
-    await emitPhase(emit, "copy", 0, 0, 0, 0, null)
-    await emitPhase(emit, "artwork", 0, 0, 0, 0, null)
-    if (ctx.ledger) {
-      const priorHashes = new Map(
-        ctx.ledger.tracks.map((entry) => [entry.libraryPath, entry.artworkHash]),
-      )
-      const artwork = await runArtwork(ctx, ctx.ledger, priorHashes)
-      artworkSkipped = artwork.skipped
-      if (artwork.wrote) {
-        const selectedByPath = new Map(ctx.selected.map((track) => [track.relativePath, track]))
-        await mkdir(join(ctx.mountPoint, "iPod_Control", "iTunes"), { recursive: true })
-        const dbTracks = tracksForDatabase(
-          ctx.ledger.tracks,
-          selectedByPath,
-          artwork.dbidsWithArtwork,
-          playDataMap(readBack.playData),
-        )
-        await emitPhase(emit, "database", 0, 1, 0, 1, "iTunesDB")
-        const unsigned = serializeSignedLayout(dbTracks)
-        const signed = signItunesdbForFamily(unsigned, ctx.serial, ctx.family)
-        await writeFileAtomic(join(ctx.mountPoint, ITUNESDB), signed)
-        if (ledgerArtworkChanged(ctx.ledger, artwork.hashes)) {
-          await writeLedgerAtomic(ctx.config.dir, withArtworkHashes(ctx.ledger, artwork.hashes))
-        }
-        await emitPhase(emit, "database", 1, 1, 1, 1, null)
-      } else {
-        await emitPhase(emit, "database", 0, 0, 0, 0, null)
-      }
-    } else {
-      await emitPhase(emit, "database", 0, 0, 0, 0, null)
-    }
   }
 
   const ejected = !request.noEject
@@ -515,13 +574,19 @@ async function runPipeline(
   }
   await emit({
     type: "report",
-    added: ctx.plan.add.length,
+    added: addedCount,
     removed: ctx.plan.remove.length,
     kept: ctx.plan.keep.length,
-    skipped: ctx.plan.skipped.length,
+    skipped: skippedCount,
     artworkSkipped,
     ejected,
   })
+  if (diskFull) {
+    throw new SyncError({
+      message: "Device is full.",
+      code: ExitCode.StoppedAfterChange,
+    })
+  }
 }
 
 export async function runReadBack(
@@ -561,6 +626,7 @@ export async function runArtwork(
   ctx: SyncContext,
   ledger: Ledger,
   priorHashes?: ReadonlyMap<string, string | null>,
+  spaceRemaining?: number,
 ): Promise<ArtworkWriteResult> {
   const selectedByPath = new Map(ctx.selected.map((track) => [track.relativePath, track]))
   return writeDeviceArtwork({
@@ -569,6 +635,7 @@ export async function runArtwork(
     tracks: tracksForArtwork(ledger, selectedByPath),
     cacheDir: artworkCacheDir(),
     priorHashes,
+    spaceRemaining,
   })
 }
 
@@ -581,12 +648,13 @@ function buildNextLedger(
   hashes: ReadonlyMap<string, string>,
   now: number,
   playData: PlayDataFile,
+  presentAdds: ReadonlyArray<PlannedTrack>,
 ): Ledger {
   const selectedByPath = new Map(ctx.selected.map((track) => [track.relativePath, track]))
   const priorByPath = new Map((ctx.ledger?.tracks ?? []).map((entry) => [entry.libraryPath, entry]))
   const used = new Set<string>()
   const tracks: LedgerEntry[] = []
-  const keptOrAdded = [...ctx.plan.keep, ...ctx.plan.add].sort((left, right) =>
+  const keptOrAdded = [...ctx.plan.keep, ...presentAdds].sort((left, right) =>
     left.path.localeCompare(right.path),
   )
   for (const planned of keptOrAdded) {
@@ -657,18 +725,24 @@ function dbidFor(prior: LedgerEntry | undefined, used: Set<string>): string {
     used.add(prior.dbid)
     return prior.dbid
   }
-  while (true) {
-    const bytes = randomBytes(8)
-    const value = bytes.readBigUInt64LE(0)
-    if (value === 0n) {
-      continue
-    }
-    const text = value.toString()
-    if (!used.has(text)) {
-      used.add(text)
-      return text
-    }
-  }
+  return freshDbid(used)
+}
+
+async function writeSyncingMarker(
+  mountPoint: string,
+  serial: string,
+  startedAt: number,
+): Promise<void> {
+  await writeFileAtomic(
+    join(mountPoint, SYNCING_MARKER),
+    `${JSON.stringify({ serial, startedAt })}\n`,
+  )
+}
+
+async function deviceFreeBytes(platform: PlatformApi, serial: string): Promise<number | null> {
+  const attached = await Effect.runPromise(platform.listDevices)
+  const info = attached.find((entry) => entry.serial === serial)
+  return info?.freeBytes ?? null
 }
 
 function uniquePaths(paths: ReadonlyArray<string>): string[] {

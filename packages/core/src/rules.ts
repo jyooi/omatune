@@ -2,7 +2,11 @@ import type { AppSelection, SelectionRule } from "./config.ts"
 import { isSupportedExtension, type ScannedFile } from "./scan.ts"
 import type { TrackTags } from "./tags.ts"
 
-export type SkipReason = "unreadable_tags" | "unsupported_format" | "unstorable_name"
+export type SkipReason =
+  | "unreadable_tags"
+  | "unsupported_format"
+  | "unstorable_name"
+  | "disk_full"
 
 export type SkippedTrack = {
   readonly path: string

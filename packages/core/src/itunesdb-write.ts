@@ -19,6 +19,9 @@ const MHOD_HEADER = 24
 const MHYP_HEADER = 184
 const MHIP_HEADER = 76
 const VERSION = 0x30
+const MHOD_BODY_PREFIX = 16
+const STRING_UTF16_BYTES = 512
+const RESERVE_ALIGN = 512
 
 export type ItunesdbTrack = {
   readonly libraryPath: string
@@ -40,6 +43,15 @@ export function buildItunesdb(tracks: ReadonlyArray<ItunesdbTrack>): Itunesdb {
 
 export function serializeSignedLayout(tracks: ReadonlyArray<ItunesdbTrack>): Uint8Array {
   return serializeItunesdb(buildItunesdb(tracks))
+}
+
+export function itunesdbReserveBytes(trackCount: number): number {
+  const count = Math.max(0, Math.floor(trackCount))
+  const mhod = MHOD_HEADER + MHOD_BODY_PREFIX + STRING_UTF16_BYTES
+  const fixed =
+    MHBD_HEADER + 2 * MHSD_HEADER + MHLT_HEADER + MHLP_HEADER + MHYP_HEADER + mhod
+  const perTrack = MHIT_HEADER + MHIP_HEADER + 5 * mhod
+  return roundUp(fixed, RESERVE_ALIGN) + roundUp(perTrack, RESERVE_ALIGN) * count
 }
 
 export function readItunesdbTracks(bytes: Uint8Array): Track[] {
@@ -207,6 +219,13 @@ function encodeUtf16le(text: string): Uint8Array {
 
 function empty(): Uint8Array {
   return new Uint8Array(0)
+}
+
+function roundUp(value: number, unit: number): number {
+  if (value <= 0) {
+    return 0
+  }
+  return Math.ceil(value / unit) * unit
 }
 
 function writeFourCc(bytes: Uint8Array, offset: number, id: string): void {
