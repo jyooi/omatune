@@ -21,8 +21,13 @@ _Avoid_: song, file
 A group of Tracks that share album and album-artist tags.
 
 **Selection**:
-The subset of the Library the user wants on the Device.
+The subset of the Library the user wants on one Device, expressed as Rules.
 _Avoid_: playlist (a Selection is not a playlist), sync set
+
+**Rule**:
+One include or exclude line of a Selection that names an album artist, an Album, or a path under the Library.
+Include Rules union, exclude Rules subtract.
+_Avoid_: filter, query, pattern
 
 **Sync**:
 A mirror operation that makes the Device match the Selection exactly, deletions included.
