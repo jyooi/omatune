@@ -1,0 +1,43 @@
+# Device Checklist. Source of truth for the "Device verification" GitHub issue form
+# and for the checklist table in the v1 spec. Edit it here only.
+# Run on the Verification Library in fixtures/audio/ after a typed-wipe sync on stock firmware.
+# Pass rule: every applicable item passes. Applicability is fixed per family below.
+items:
+  - id: DC-01
+    step: Eject after Sync, unplug, watch the Device
+    pass: Leaves the disconnect screen and shows the main menu; no restore prompt
+    not_applicable_for: []
+  - id: DC-02
+    step: Settings, About
+    pass: Songs count equals the count in the Sync report
+    not_applicable_for: []
+  - id: DC-03
+    step: Browse Artists, Albums, Songs
+    pass: Every artist and Album appears once under the album artist, Tracks in disc and track order
+    not_applicable_for: []
+  - id: DC-04
+    step: Play one mp3, one AAC m4a, one ALAC m4a to the end
+    pass: No skip or error; now-playing shows tagged title, artist, Album, duration
+    not_applicable_for: []
+  - id: DC-05
+    step: Now-playing on a Track with Artwork and on the one without
+    pass: Artwork on the first, placeholder on the second; Cover Flow matches
+    not_applicable_for: [MINI_1, MINI_2]
+    notes: Cover Flow only on CLASSIC_1, CLASSIC_2, CLASSIC_3, NANO_3, NANO_4
+  - id: DC-06
+    step: Play the gapless pair across the boundary
+    pass: No audible gap or click
+    not_applicable_for: [MINI_1, MINI_2, NANO_1]
+    notes: Also not applicable on VIDEO_1 and VIDEO_2 with firmware before gapless support
+  - id: DC-07
+    step: Play one Track to the end, rate another 4 stars, skip a third after 2 s, eject, run sync again
+    pass: Plan shows read-back of play count 1, rating 4, skip count 1; play-data.json holds them
+    not_applicable_for: []
+  - id: DC-08
+    step: Remove one Album from the Selection, add one, Sync
+    pass: Device shows the new Album, no trace of the removed one
+    not_applicable_for: []
+  - id: DC-09
+    step: Reboot (Menu + Select), open Music
+    pass: Database loads with no rebuild delay; Songs count from DC-02 holds
+    not_applicable_for: []
