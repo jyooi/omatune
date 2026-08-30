@@ -16,7 +16,7 @@ They contain no third-party recordings.
 - `library/` holds the audio Tracks.
 - `manifest.json` states expected counts and tags.
 - `generate.ts` builds the Tracks and the manifest.
-- `read-tags.ts` reads tags for tests.
+- `read-tags.ts` exports the tag reader in `packages/core/src/tags.ts` for tests.
 
 ## Counts
 
