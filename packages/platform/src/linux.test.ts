@@ -293,6 +293,18 @@ test("uses SysInfoExtended FireWire ID first", async () => {
   expect(devices[0]?.serial).toBe("aaaaaaaaaaaaaaaa")
 })
 
+test("SysInfo with only FirewireGuid leaves modelString null", async () => {
+  const volume = await makeVolume("iPod_Control", {
+    sysInfo: "FirewireGuid: 0x000A27001395D5A3\n",
+  })
+  const transport = transportFor(volume)
+  const devices = await list(transport)
+  expect(devices).toHaveLength(1)
+  expect(devices[0]?.serial).toBe(SERIAL)
+  expect(devices[0]?.modelString).toBe(null)
+  expect(devices[0]?.productId).toBe(0x1261)
+})
+
 test("uses non-empty SysInfo FireWire ID when SysInfoExtended is absent", async () => {
   const volume = await makeVolume("iPod_Control", {
     sysInfo: sysInfoText(SERIAL),

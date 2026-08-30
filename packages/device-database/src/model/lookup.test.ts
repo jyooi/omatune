@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import { join } from "node:path"
-import { allFamilies, lookupByLibgpodKey, lookupByModelNumStr } from "./lookup.ts"
+import { allFamilies, lookupByLibgpodKey, lookupByModelNumStr, lookupFamily } from "./lookup.ts"
 import { parseSupportTable } from "./parse-support-table.ts"
 
 const supportPath = join(import.meta.dir, "../../../../docs/support-table.md")
@@ -47,4 +47,21 @@ test("exact appleModels match wins overlapping ranges", () => {
 
 test("narrowest covering range wins before onward", () => {
   expect(lookupByModelNumStr("MA005")?.family).toBe("iPod nano 1G")
+})
+
+test("USB 0x1261 maps to CLASSIC_2 when ModelNumStr is absent", () => {
+  const family = lookupFamily({ productId: 0x1261 })
+  expect(family?.libgpodKeys).toEqual(["CLASSIC_2"])
+  expect(family?.family).toBe("iPod classic 120 GB (2008)")
+  expect(family?.supportTier).toBe("Verified")
+})
+
+test("ModelNumStr wins over USB product id", () => {
+  const family = lookupFamily({ modelString: "MC027", productId: 0x1261 })
+  expect(family?.family).toBe("iPod nano 5G")
+})
+
+test("unknown ModelNumStr does not fall back to USB product id", () => {
+  const family = lookupFamily({ modelString: "ZZ999", productId: 0x1261 })
+  expect(family).toBeUndefined()
 })

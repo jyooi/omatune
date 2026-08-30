@@ -274,7 +274,7 @@ async function prepareSync(
       code: ExitCode.RefusedBeforeChange,
     })
   }
-  const family = forced ?? lookupFamily({ modelString: info.modelString })
+  const family = forced ?? lookupFamily({ modelString: info.modelString, productId: info.productId })
   const tier = family?.supportTier ?? report.supportTier
   const familyName = family?.family ?? report.family
   if (!forced && (tier === "Unsupported" || tier === null || familyName === null || !family)) {

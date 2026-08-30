@@ -44,7 +44,7 @@ export async function ownerStateFor(info: DeviceInfo): Promise<OwnerState> {
 }
 
 export async function toDeviceReport(info: DeviceInfo): Promise<DeviceReport> {
-  const family = lookupFamily({ modelString: info.modelString })
+  const family = lookupFamily({ modelString: info.modelString, productId: info.productId })
   const notes: string[] = []
   if (!isFat32(info.filesystemType)) {
     notes.push("Reformat the Device to FAT32.")
