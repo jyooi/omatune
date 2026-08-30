@@ -290,6 +290,10 @@ export function mirrorRows(artists: ReadonlyArray<ArtistNode>, plan: SyncPlan): 
   const add = groupPaths(artists, plan.add.map((track) => track.path))
   const keep = groupPaths(artists, plan.keep.map((track) => track.path))
   const remove = groupPaths(artists, plan.remove.map((track) => track.path))
+  const onDevice = new Set([
+    ...plan.add.map((track) => track.path),
+    ...plan.keep.map((track) => track.path),
+  ])
   const rows: MirrorRow[] = []
   for (const artist of artists) {
     const albumRows: MirrorRow[] = []
@@ -299,10 +303,7 @@ export function mirrorRows(artists: ReadonlyArray<ArtistNode>, plan: SyncPlan): 
       const staying = keep.has(key)
       const leaving = remove.has(key)
       if (joining || staying) {
-        const count = joining && !staying ? album.tracks.length : album.tracks.filter((track) => {
-          return plan.add.some((item) => item.path === track.relativePath) ||
-            plan.keep.some((item) => item.path === track.relativePath)
-        }).length
+        const count = album.tracks.filter((track) => onDevice.has(track.relativePath)).length
         albumRows.push({
           kind: "album",
           album: album.album,

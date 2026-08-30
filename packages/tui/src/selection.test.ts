@@ -125,7 +125,9 @@ test("Selection screen snapshot at 110x32", async () => {
 
 test("Selection screen snapshot at 80x24", async () => {
   const view = await mount(80, 24)
-  expect(view.captureCharFrame()).toMatchSnapshot()
+  const frame = view.captureCharFrame()
+  expect(frame).toContain("Verified")
+  expect(frame).toMatchSnapshot()
   view.handle.dispose()
   view.renderer.destroy()
 })
@@ -204,6 +206,110 @@ test("live plan summary updates after a tick", async () => {
   expect(after).toContain("fits")
   view.handle.dispose()
   view.renderer.destroy()
+})
+
+test("q waits for the Selection write before onQuit", async () => {
+  const clock = new ManualClock()
+  let releaseWrite: () => void = () => {}
+  const gate = new Promise<void>((resolve) => {
+    releaseWrite = resolve
+  })
+  const written: string[] = []
+  let quitWrites = -1
+  let resumeQuit: () => void = () => {}
+  const quitSeen = new Promise<void>((resolve) => {
+    resumeQuit = resolve
+  })
+  const setup = await createTestRenderer({
+    width: 110,
+    height: 32,
+    clock,
+    useMouse: true,
+    consoleMode: "disabled",
+  })
+  attachSelectionScreen(
+    setup.renderer,
+    {
+      libraryRoot: "~/Music",
+      deviceName: "Classic 120GB",
+      serial: "000A27001395D5A3",
+      tier: "Verified",
+      freeBytes: 24_300_000_000,
+      tracksOnDevice: 1,
+      files,
+      selection: startSelection,
+      ledger,
+      writeSelection: async (selection) => {
+        await gate
+        written.push(serializeSelection(selection))
+      },
+    },
+    {
+      clock,
+      onQuit: () => {
+        quitWrites = written.length
+        resumeQuit()
+      },
+    },
+  )
+  clock.advance(100)
+  await setup.renderOnce()
+  setup.mockInput.pressKey(" ")
+  setup.mockInput.pressKey("q")
+  await Promise.resolve()
+  expect(quitWrites).toBe(-1)
+  expect(written).toHaveLength(0)
+  releaseWrite()
+  await quitSeen
+  expect(quitWrites).toBe(1)
+  expect(written.at(-1)).toContain('album_artist = "Boards of Canada"')
+  setup.renderer.destroy()
+})
+
+test("a failed Selection write does not block the next tick", async () => {
+  const clock = new ManualClock()
+  let calls = 0
+  const written: string[] = []
+  const setup = await createTestRenderer({
+    width: 110,
+    height: 32,
+    clock,
+    useMouse: true,
+    consoleMode: "disabled",
+  })
+  const handle = attachSelectionScreen(
+    setup.renderer,
+    {
+      libraryRoot: "~/Music",
+      deviceName: "Classic 120GB",
+      serial: "000A27001395D5A3",
+      tier: "Verified",
+      freeBytes: 24_300_000_000,
+      tracksOnDevice: 1,
+      files,
+      selection: startSelection,
+      ledger,
+      writeSelection: async (selection) => {
+        calls += 1
+        if (calls === 1) {
+          throw new Error("disk full")
+        }
+        written.push(serializeSelection(selection))
+      },
+    },
+    { clock },
+  )
+  clock.advance(100)
+  await setup.renderOnce()
+  setup.mockInput.pressKey(" ")
+  await handle.flush()
+  setup.mockInput.pressKey(" ")
+  await handle.flush()
+  expect(calls).toBe(2)
+  expect(written).toHaveLength(1)
+  expect(written[0]).not.toContain('album_artist = "Boards of Canada"')
+  handle.dispose()
+  setup.renderer.destroy()
 })
 
 test("empty Selection collapses the Rules box", async () => {

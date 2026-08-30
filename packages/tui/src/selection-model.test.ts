@@ -5,6 +5,7 @@ import {
   flattenTree,
   formatPlanSummary,
   groupLibrary,
+  mirrorRows,
   planOf,
   selectedPathsOf,
   toggleAlbum,
@@ -133,6 +134,30 @@ test("plan summary reports add remove bytes and fit", () => {
   expect(formatPlanSummary(plan)).toContain("fits")
   const tight = planOf(files, selection, null, 1000)
   expect(formatPlanSummary(tight)).toContain("does not fit")
+})
+
+test("mirror Album count includes only plan add and keep Tracks", () => {
+  const mixed: ScannedFile[] = [
+    file("Radiohead/Kid A/01 Everything In Its Right Place.mp3", 6_000_000, kida),
+    {
+      relativePath: "Radiohead/Kid A/01 Everything In Its Right Place.flac",
+      size: 30_000_000,
+      mtimeMs: 1,
+      extension: "flac",
+      tags: { ...kida, title: "Everything FLAC" },
+    },
+  ]
+  const artists = groupLibrary(mixed)
+  const selection = toggleArtist(emptySelection(), "Radiohead", "none")
+  const plan = planOf(mixed, selection, null, 100_000_000)
+  expect(plan.add).toHaveLength(1)
+  const kid = mirrorRows(artists, plan).find((row) => row.kind === "album" && row.album === "Kid A")
+  expect(kid).toEqual({
+    kind: "album",
+    album: "Kid A",
+    marker: "+",
+    count: "1",
+  })
 })
 
 test("tree rows are Artist then Album", () => {

@@ -203,7 +203,7 @@ export function attachSelectionScreen(
 
   function commit(next: AppSelection): void {
     selection = next
-    writing = writing.then(() => host.writeSelection(next))
+    writing = writing.then(() => host.writeSelection(next)).catch(() => undefined)
     requestDraw()
   }
 
@@ -234,8 +234,16 @@ export function attachSelectionScreen(
     clampCursor()
     const wide = renderer.width >= WIDE_MIN
     panes.flexDirection = wide ? "row" : "column"
+    const leftLen =
+      `omatune ${host.libraryRoot} -> ${host.deviceName} ${host.serial} ${host.tier}`.length
+    const free = formatFree(host.freeBytes)
+    const tracks = `${String(host.tracksOnDevice)} Tracks`
+    const wideRight = `${free} free · ${tracks}`
+    const compact = leftLen + 1 + wideRight.length > Math.max(0, renderer.width - 2)
     headerLeft.content = st`${bold(fg(palette.accent)("omatune"))} ${host.libraryRoot} ${dim("->")} ${bold(host.deviceName)} ${dim(host.serial)} ${fg(palette.green)(host.tier)}`
-    headerRight.content = st`${formatFree(host.freeBytes)} free ${dim("·")} ${String(host.tracksOnDevice)} Tracks`
+    headerRight.content = compact
+      ? st`${free} ${dim("·")} ${tracks}`
+      : st`${free} free ${dim("·")} ${tracks}`
 
     const selected = selectedPathsOf(host.files, selection)
     const treeRows = flattenTree(artists, selected, expanded)
@@ -416,7 +424,10 @@ export function attachSelectionScreen(
       return
     }
     dispose()
-    options.onQuit?.(code)
+    void writing.then(
+      () => options.onQuit?.(code),
+      () => options.onQuit?.(code),
+    )
   }
 
   function dispose(): void {
