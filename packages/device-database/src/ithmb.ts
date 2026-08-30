@@ -8,6 +8,7 @@
  *
  * Each block holds packed RGB565 pixels.
  * The decoder ignores extra bytes after width times height.
+ * The encoder writes RGB565 pixels and pads the block to blockBytes.
  */
 
 import { concatBytes } from "./bytes.ts";

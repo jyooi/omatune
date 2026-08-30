@@ -3,8 +3,8 @@
  *
  * JPEG uses jpeg-js, a pure JavaScript baseline decoder with no WASM
  * and no native addon, so a compiled bun binary can load it.
- * jpeg-js does not cover every progressive JPEG. This module treats
- * SOF2 progressive JPEG as unsupported and the caller skips Artwork.
+ * jpeg-js does not decode progressive JPEG. This module returns
+ * progressive_jpeg for SOF2. The caller skips Artwork for that Track.
  *
  * PNG inflate uses node:zlib. The decoder accepts 8-bit non-interlaced
  * colour types 0, 2, 3, 4, and 6. It rejects 16-bit and Adam7 files.
