@@ -4,6 +4,7 @@ import { runTui } from "@omatune/tui"
 import { Effect, type Layer } from "effect"
 import { parseArgv } from "./flags.ts"
 import { formatJson, formatTable } from "./format.ts"
+import { runStatus } from "./status.ts"
 
 export type RunResult = {
   code: 0 | 1 | 2
@@ -11,7 +12,7 @@ export type RunResult = {
   stderr: string
 }
 
-const NOT_IMPLEMENTED = new Set(["sync", "plan", "status"])
+const NOT_IMPLEMENTED = new Set(["sync", "plan"])
 
 function refused(message: string): RunResult {
   return { code: ExitCode.RefusedBeforeChange, stdout: "", stderr: `${message}\n` }
@@ -28,6 +29,7 @@ function defaultLayer(): Layer.Layer<Platform> {
 export async function runMain(
   argv: ReadonlyArray<string>,
   layer: Layer.Layer<Platform> = defaultLayer(),
+  env: NodeJS.ProcessEnv = process.env,
 ): Promise<RunResult> {
   const parsed = parseArgv(argv)
   if ("message" in parsed) {
@@ -37,6 +39,10 @@ export async function runMain(
   if (parsed.subcommand === null) {
     const tui = runTui()
     return { code: tui.code, stdout: tui.stdout, stderr: tui.stderr }
+  }
+
+  if (parsed.subcommand === "status") {
+    return runStatus(parsed, env)
   }
 
   if (NOT_IMPLEMENTED.has(parsed.subcommand)) {

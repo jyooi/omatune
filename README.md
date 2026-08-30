@@ -23,6 +23,17 @@ Print the same facts as JSON objects, one object per line:
 bun run omatune devices --json
 ```
 
+Print Selection Rule count and Ledger summary for one Device:
+
+```
+bun run omatune status --device <serial>
+```
+
+omatune reads `$XDG_CONFIG_HOME/omatune/config.toml`.
+`--config` sets the config directory.
+`OMATUNE_CONFIG` overrides `--config`.
+A missing `config.toml` writes a starter file and exits 1.
+
 Run tests with `bun test`.
 
 Build every package with `bun run build`.
@@ -33,7 +44,7 @@ Build every package with `bun run build`.
 
 `packages/platform` holds the Platform service, the fake Layer, and the stub Layer.
 
-`packages/core` holds Device reports and exit codes.
+`packages/core` holds Device reports, exit codes, and config file load.
 
 `packages/cli` holds the command line entry.
 

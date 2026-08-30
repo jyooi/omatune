@@ -21,6 +21,7 @@ Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/
 
 Workspace packages live in `packages/`.
 `Platform` in `packages/platform` is the only hardware seam.
+Config and Selection files load in `packages/core/src/config.ts`.
 
 ## Maintaining this file
 
