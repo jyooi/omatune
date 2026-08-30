@@ -11,6 +11,7 @@ import {
   readItunesdbTracks,
   sha256File,
   thumbnailsOf,
+  wipeIpodControl,
 } from "@omatune/core"
 import { fakeLayer, writeFakeDevice } from "@omatune/platform"
 import { existsSync } from "node:fs"
@@ -672,6 +673,44 @@ path = "tone-suite/01-pregap.mp3"
   }
   expect(ledgerB.tracks).toHaveLength(1)
   expect(ledgerB.tracks[0]?.dbid).not.toBe(ledgerA.tracks[0]?.dbid)
+})
+
+test("interrupted wipe resumes and commits a signed iTunesDB", async () => {
+  const dir = await makeDir("omatune-sync-wipe-kill-")
+  const fake = await makeDir("omatune-sync-fake-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "tone-suite/01-pregap.mp3"
+`,
+  )
+  await emptyClassic(fake)
+  const first = await sync(dir, fake, ["--yes", "--no-eject"])
+  expect(first.code).toBe(0)
+  await wipeIpodControl(volume(fake))
+  await writeFile(
+    join(volume(fake), "iPod_Control", "omatune.syncing"),
+    `${JSON.stringify({ serial: SERIAL, startedAt: 1 })}\n`,
+  )
+  expect(await Bun.file(join(volume(fake), "iPod_Control", "iTunes", "iTunesDB")).exists()).toBe(
+    false,
+  )
+  const resumed = await sync(dir, fake, ["--yes", "--no-eject", "--json"])
+  expect(resumed.code).toBe(0)
+  const events = jsonLines(resumed.stdout)
+  const plan = events[0] as { plan?: { add?: unknown[]; keep?: unknown[] } }
+  expect(plan.plan?.add).toHaveLength(1)
+  expect(plan.plan?.keep).toHaveLength(0)
+  const dbPath = join(volume(fake), "iPod_Control", "iTunes", "iTunesDB")
+  const tracks = readItunesdbTracks(new Uint8Array(await Bun.file(dbPath).arrayBuffer()))
+  expect(tracks).toHaveLength(1)
+  expect(tracks[0]?.title).toBe("Pregap")
+  const rel = tracks[0]?.devicePath.replaceAll(":", "/").replace(/^\//, "") ?? ""
+  expect(await Bun.file(join(volume(fake), rel)).exists()).toBe(true)
+  expect(await Bun.file(join(volume(fake), "iPod_Control", "omatune.syncing")).exists()).toBe(false)
 })
 
 test("interrupted Sync resumes after a simulated kill between two copies", async () => {

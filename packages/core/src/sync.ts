@@ -45,6 +45,7 @@ import {
   writeLedgerAtomic,
 } from "./ledger.ts"
 import { acquireSerialLock, releaseSerialLock } from "./lock.ts"
+import { reconcilePlanWithDevice } from "./resume-plan.ts"
 import { evaluateSelection, type SelectedTrack, type SkippedTrack } from "./rules.ts"
 import { scanLibrary } from "./scan.ts"
 import {
@@ -201,6 +202,11 @@ async function executeLocked(
     })
   }
   if (prepared.plan.kind === "wipe") {
+    await writeSyncingMarker(
+      prepared.mountPoint,
+      prepared.serial,
+      await Effect.runPromise(platform.now),
+    )
     await wipeIpodControl(prepared.mountPoint)
   }
   await runPipeline(request, prepared, platform, emit)
@@ -318,7 +324,7 @@ async function prepareSync(
       : ledgerResult.value
   const playCountsPending =
     kind === "wipe" ? 0 : await countPlayCountsEntries(info.mountPoint)
-  const plan = buildPlan({
+  let plan = buildPlan({
     kind,
     selected,
     skipped,
@@ -328,6 +334,9 @@ async function prepareSync(
     forceModel: request.forceModel,
     playCountsPending,
   })
+  if (await pathExists(join(info.mountPoint, SYNCING_MARKER))) {
+    plan = await reconcilePlanWithDevice(plan, info.mountPoint)
+  }
   return {
     config: loaded.config,
     serial,
@@ -362,15 +371,18 @@ async function runPipeline(
   const named = new Set([...ctx.plan.keep, ...ctx.plan.add].map((track) => track.devicePath))
   const music = await listMusicFiles(ctx.mountPoint)
   const extra = music.filter((path) => !named.has(path))
+  const marker = join(ctx.mountPoint, SYNCING_MARKER)
+  const resume = await pathExists(marker)
+  const hasItunesdb = await pathExists(join(ctx.mountPoint, ITUNESDB))
   const noop =
     ctx.plan.kind !== "adoption" &&
     !readBack.consumedPlayCounts &&
     !playDataNeedsWriteback(readBack.playData, ctx.ledger) &&
     ctx.plan.add.length === 0 &&
     ctx.plan.remove.length === 0 &&
-    extra.length === 0
-  const marker = join(ctx.mountPoint, SYNCING_MARKER)
-  const resume = await pathExists(marker)
+    extra.length === 0 &&
+    !resume &&
+    hasItunesdb
   let addedCount = ctx.plan.add.length
   let skippedCount = ctx.plan.skipped.length
   let diskFull = false
@@ -410,10 +422,7 @@ async function runPipeline(
       await emitPhase(emit, "database", 0, 0, 0, 0, null)
     }
   } else {
-    await writeFileAtomic(
-      marker,
-      `${JSON.stringify({ serial: ctx.serial, startedAt: await Effect.runPromise(platform.now) })}\n`,
-    )
+    await writeSyncingMarker(ctx.mountPoint, ctx.serial, await Effect.runPromise(platform.now))
     const deletes = uniquePaths([
       ...ctx.plan.remove.map((track) => track.devicePath),
       ...extra,
@@ -710,6 +719,17 @@ function dbidFor(prior: LedgerEntry | undefined, used: Set<string>): string {
     return prior.dbid
   }
   return freshDbid(used)
+}
+
+async function writeSyncingMarker(
+  mountPoint: string,
+  serial: string,
+  startedAt: number,
+): Promise<void> {
+  await writeFileAtomic(
+    join(mountPoint, SYNCING_MARKER),
+    `${JSON.stringify({ serial, startedAt })}\n`,
+  )
 }
 
 async function deviceFreeBytes(platform: PlatformApi, serial: string): Promise<number | null> {
