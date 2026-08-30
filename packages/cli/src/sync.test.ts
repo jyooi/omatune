@@ -22,6 +22,7 @@ const LIBRARY = join(import.meta.dir, "../../../fixtures/audio/library")
 function testEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env }
   delete env.OMATUNE_CONFIG
+  env.XDG_DATA_HOME = join(tmpdir(), "omatune-sync-data")
   return env
 }
 
@@ -362,6 +363,7 @@ path = "tone-suite/01-pregap.mp3"
   const result = await sync(dir, fake, ["--yes", "--no-eject"])
   expect(result.code).toBe(1)
   expect(result.stderr).toContain("foreign")
+  expect(result.stdout).toContain("Read-back skipped: Device is foreign.")
 })
 
 test("--strict refuses on a Skipped Track", async () => {

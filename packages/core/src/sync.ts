@@ -51,6 +51,18 @@ import {
   type ArtworkWriteResult,
 } from "./artwork.ts"
 import { serializeSignedLayout, tracksForDatabase } from "./itunesdb-write.ts"
+import {
+  loadPlayData,
+  writePlayDataAtomic,
+  type HostPlayData,
+  type PlayDataFile,
+} from "./play-data.ts"
+import {
+  FOREIGN_READ_BACK_SKIP,
+  countPlayCountsEntries,
+  runPlayDataReadBack,
+  type ReadBackResult,
+} from "./read-back.ts"
 
 export class SyncError extends Data.TaggedError("SyncError")<{
   readonly message: string
@@ -81,6 +93,7 @@ export type SyncReport = {
 
 export type SyncEvent =
   | { readonly type: "plan"; readonly plan: SyncPlan }
+  | { readonly type: "message"; readonly text: string; readonly level: "info" | "warning" }
   | SyncProgress
   | SyncReport
 
@@ -91,6 +104,7 @@ export type SyncRequest = {
   readonly noEject: boolean
   readonly strict: boolean
   readonly forceModel: string | null
+  readonly dataDir: string
   readonly confirm: (plan: SyncPlan) => Promise<boolean>
 }
 
@@ -104,6 +118,7 @@ type SyncContext = {
   readonly report: DeviceReport
   readonly family: FamilyRecord
   readonly mountPoint: string
+  readonly dataDir: string
 }
 
 export class Sync extends Context.Tag("omatune/Sync")<
@@ -169,6 +184,7 @@ async function executeLocked(
     })
   }
   if (prepared.plan.kind === "wipe") {
+    await emit({ type: "message", text: FOREIGN_READ_BACK_SKIP, level: "info" })
     throw new SyncError({
       message: "This Device is foreign. omatune refuses to Sync it.",
       code: ExitCode.RefusedBeforeChange,
@@ -284,14 +300,18 @@ async function prepareSync(
   const files = await scanLibrary(loaded.config.library)
   const { selected, skipped } = evaluateSelection(files, selection.value)
   const hashes = await hashesForAdds(loaded.config.library, selected, ledgerResult.value)
+  const kind = planKind({ ownerState: report.ownerState, hasLedger: ledgerResult.value !== null })
+  const playCountsPending =
+    kind === "wipe" ? 0 : await countPlayCountsEntries(info.mountPoint)
   const plan = buildPlan({
-    kind: planKind({ ownerState: report.ownerState, hasLedger: ledgerResult.value !== null }),
+    kind,
     selected,
     skipped,
     ledger: ledgerResult.value,
     hashes,
     freeBytes: report.freeSpaceBytes,
     forceModel: request.forceModel,
+    playCountsPending,
   })
   if (plan.freeSpaceAfter < 0) {
     throw new SyncError({
@@ -309,6 +329,7 @@ async function prepareSync(
     report,
     family,
     mountPoint: info.mountPoint,
+    dataDir: request.dataDir,
   }
 }
 
@@ -319,13 +340,24 @@ async function runPipeline(
   emit: (event: SyncEvent) => Promise<void>,
 ): Promise<void> {
   await emitPhase(emit, "read-back", 0, 0, 0, 0, null)
-  // HUF-269 Read-back runs here, before delete.
-  await runReadBack(ctx)
+  const readBack = await runReadBack(request, ctx, platform)
+  for (const message of readBack.messages) {
+    await emit({ type: "message", text: message.text, level: message.level })
+  }
+  if (readBack.strictFail) {
+    throw new SyncError({
+      message: readBack.strictFail,
+      code: ExitCode.RefusedBeforeChange,
+    })
+  }
   const named = new Set([...ctx.plan.keep, ...ctx.plan.add].map((track) => track.devicePath))
   const music = await listMusicFiles(ctx.mountPoint)
   const extra = music.filter((path) => !named.has(path))
   const noop =
-    ctx.plan.add.length === 0 && ctx.plan.remove.length === 0 && extra.length === 0
+    !readBack.consumedPlayCounts &&
+    ctx.plan.add.length === 0 &&
+    ctx.plan.remove.length === 0 &&
+    extra.length === 0
   let artworkSkipped: ReadonlyArray<ArtworkSkip> = []
   if (!noop) {
     const marker = join(ctx.mountPoint, SYNCING_MARKER)
@@ -398,7 +430,7 @@ async function runPipeline(
     await emitPhase(emit, "copy", bytesDone, bytesTotal, copied, add.length, null)
 
     const now = await Effect.runPromise(platform.now)
-    const nextLedger = buildNextLedger(ctx, hashes, now)
+    const nextLedger = buildNextLedger(ctx, hashes, now, readBack.playData)
     await emitPhase(emit, "artwork", 0, 0, 0, 0, null)
     const artwork = await runArtwork(ctx, nextLedger)
     artworkSkipped = artwork.skipped
@@ -406,7 +438,13 @@ async function runPipeline(
 
     await mkdir(join(ctx.mountPoint, "iPod_Control", "iTunes"), { recursive: true })
     const selectedByPath = new Map(ctx.selected.map((track) => [track.relativePath, track]))
-    const dbTracks = tracksForDatabase(nextLedger.tracks, selectedByPath, artworkDbids)
+    const playDataByHash = playDataMap(readBack.playData)
+    const dbTracks = tracksForDatabase(
+      nextLedger.tracks,
+      selectedByPath,
+      artworkDbids,
+      playDataByHash,
+    )
     await emitPhase(emit, "database", 0, 1, 0, 1, "iTunesDB")
     const unsigned = serializeSignedLayout(dbTracks)
     const signed = signItunesdbForFamily(unsigned, ctx.serial, ctx.family)
@@ -438,6 +476,7 @@ async function runPipeline(
           ctx.ledger.tracks,
           selectedByPath,
           artwork.dbidsWithArtwork,
+          playDataMap(readBack.playData),
         )
         await emitPhase(emit, "database", 0, 1, 0, 1, "iTunesDB")
         const unsigned = serializeSignedLayout(dbTracks)
@@ -470,8 +509,37 @@ async function runPipeline(
   })
 }
 
-export async function runReadBack(_ctx: SyncContext): Promise<void> {
-  return
+export async function runReadBack(
+  request: SyncRequest,
+  ctx: SyncContext,
+  platform: PlatformApi,
+): Promise<ReadBackResult> {
+  const loaded = await loadPlayData(ctx.dataDir)
+  if (!loaded.ok) {
+    throw new SyncError({
+      message: `${loaded.issue.file}:${loaded.issue.line}: ${loaded.issue.reason}`,
+      code: ExitCode.RefusedBeforeChange,
+    })
+  }
+  const now = await Effect.runPromise(platform.now)
+  const result = await runPlayDataReadBack(
+    {
+      kind: ctx.plan.kind,
+      serial: ctx.serial,
+      mountPoint: ctx.mountPoint,
+      dataDir: ctx.dataDir,
+      ledger: ctx.ledger,
+      hashes: ctx.hashes,
+      selected: ctx.selected,
+      strict: request.strict,
+      now,
+    },
+    loaded.value,
+  )
+  if (result.changed) {
+    await writePlayDataAtomic(ctx.dataDir, result.playData)
+  }
+  return result
 }
 
 export async function runArtwork(
@@ -489,10 +557,15 @@ export async function runArtwork(
   })
 }
 
+function playDataMap(file: PlayDataFile): Map<string, HostPlayData> {
+  return new Map(Object.entries(file.tracks))
+}
+
 function buildNextLedger(
   ctx: SyncContext,
   hashes: ReadonlyMap<string, string>,
   now: number,
+  playData: PlayDataFile,
 ): Ledger {
   const selectedByPath = new Map(ctx.selected.map((track) => [track.relativePath, track]))
   const priorByPath = new Map((ctx.ledger?.tracks ?? []).map((entry) => [entry.libraryPath, entry]))
@@ -508,6 +581,7 @@ function buildNextLedger(
     }
     const prior = priorByPath.get(planned.path)
     const sha256 = hashes.get(planned.path) ?? prior?.sha256 ?? ""
+    const host = playData.tracks[sha256]
     tracks.push({
       libraryPath: planned.path,
       size: selected.size,
@@ -516,9 +590,9 @@ function buildNextLedger(
       devicePath: planned.devicePath,
       dbid: dbidFor(prior, used),
       artworkHash: artworkHashOf(selected.tags.artworkBytes),
-      writtenRating: null,
-      lastPlayed: null,
-      bookmark: null,
+      writtenRating: host?.rating ?? 0,
+      lastPlayed: host?.lastPlayed ?? 0,
+      bookmark: host?.bookmark ?? 0,
     })
   }
   return {
