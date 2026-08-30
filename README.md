@@ -2,12 +2,79 @@
 
 Open-source music sync for iPods after Apple dropped support.
 Runs on Linux and macOS and writes the database the stock iPod firmware reads.
+iPod classic, nano 1G to 4G, video and mini.
+See the support table.
 
 ## Install
+
+Download one binary for your platform from GitHub Releases.
+The host does not need bun.
+
+https://github.com/jyooi/omatune/releases
+
+### Linux x86_64
+
+```
+chmod +x omatune-linux-x64
+./omatune-linux-x64
+```
+
+### Linux arm64
+
+```
+chmod +x omatune-linux-arm64
+./omatune-linux-arm64
+```
+
+### macOS Apple silicon
+
+```
+chmod +x omatune-darwin-arm64
+./omatune-darwin-arm64
+```
+
+### macOS Intel
+
+```
+chmod +x omatune-darwin-x64
+./omatune-darwin-x64
+```
+
+AUR `-bin` and Homebrew files are in `packaging/`.
+A later ticket publishes those packages.
+
+## Spec
+
+The v1 spec is https://linear.app/huffman/document/omatune-v1-spec-fb07aaa33fe0.
+
+## Support
+
+<!-- render:support-table:start -->
+| Family | Apple models | libgpod key | Tier | Verified by | Notes |
+|---|---|---|---|---|---|
+| iPod classic 120 GB (2008) | MB562, MB565 | CLASSIC_2 | Verified | Reference Device, firmware 2.0.1 PC | hash58, Play Counts 0x1c, artwork 1055/1060/1061 |
+| iPod classic 80/160 GB (2007) | MB029, MB147, MB145, MB150 | CLASSIC_1 | Expected | - | hash58 |
+| iPod classic 160 GB (Late 2009) | MC293, MC297 | CLASSIC_3 | Expected | - | hash58 |
+| iPod nano 4G | MB598 to MB918 | NANO_4 | Expected | - | hash58, Cover Flow |
+| iPod nano 3G | MA978 to MB261 | NANO_3 | Expected | - | hash58, Cover Flow |
+| iPod video 5G / 5.5G | MA002 to MA450 | VIDEO_1, VIDEO_2 | Expected | - | no signature; gapless needs late firmware |
+| iPod nano 2G | MA477 to MA497 | NANO_2 | Expected | - | no signature |
+| iPod nano 1G | MA004 to MA107 | NANO_1 | Expected | - | no signature, no gapless |
+| iPod mini | M9160 to M9807 | MINI_1, MINI_2 | Expected | - | no signature, no colour screen |
+| iPod nano 5G | MC027 to MC075 | NANO_5 | Unsupported | - | hash72 plus sqlite, key harvested from an iTunes DB |
+| iPod nano 6G / 7G | MC525 onward | NANO_6, NANO_7 | Unsupported | - | hashAB plus sqlite; 7G not in libgpod |
+| iPod shuffle 1G to 4G | M9724 onward | SHUFFLE_* | Unsupported | - | iTunesSD plus iTunesStats second database format |
+<!-- render:support-table:end -->
+
+## From source
 
 This repo needs bun 1.4.0.
 
 Install dependencies with `bun install`.
+
+Run tests with `bun test`.
+
+Build every package with `bun run build`.
 
 ## Commands
 
@@ -74,10 +141,6 @@ Each Device has `devices/<serial>/selection.toml` with include and exclude Rules
 A Sync writes Play Data to `$XDG_DATA_HOME/omatune/play-data.json`.
 On macOS the data directory is `~/Library/Application Support/omatune`.
 A Sync copies failed Play Counts files to `read-back-failed/` in that directory.
-
-Run tests with `bun test`.
-
-Build every package with `bun run build`.
 
 ## Packages
 

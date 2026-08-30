@@ -1,0 +1,18 @@
+pkgbase = omatune-bin
+	pkgname = omatune-bin
+	pkgver = 0.0.0
+	pkgrel = 1
+	pkgdesc = Open-source music sync for iPods
+	url = https://github.com/jyooi/omatune
+	arch = x86_64
+	arch = aarch64
+	license = MIT
+	provides = omatune
+	conflicts = omatune
+	options = !strip
+	source_x86_64 = omatune::https://github.com/jyooi/omatune/releases/download/v0.0.0/omatune-linux-x64
+	sha256sums_x86_64 = SKIP
+	source_aarch64 = omatune::https://github.com/jyooi/omatune/releases/download/v0.0.0/omatune-linux-arm64
+	sha256sums_aarch64 = SKIP
+
+pkgname = omatune-bin
