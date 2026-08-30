@@ -44,6 +44,19 @@ Nothing on the Device changes:
 bun run omatune plan --device <serial> --json
 ```
 
+Run a Sync for one Device:
+
+```
+bun run omatune sync --device <serial>
+```
+
+The command asks `Sync now? [y/N]`.
+`--yes` does not ask except on a wipe.
+`--json` prints the plan, one progress object per line, and the report.
+`--no-eject` leaves the Device mounted.
+`--strict` refuses the Sync when the plan lists Skipped Tracks.
+Success prints `Safe to unplug` after unmount.
+
 omatune reads `$XDG_CONFIG_HOME/omatune/config.toml`.
 `--config` sets the config directory.
 `OMATUNE_CONFIG` overrides `--config`.
@@ -61,7 +74,7 @@ Build every package with `bun run build`.
 
 `packages/platform` holds the Platform service, the fake Layer, the Linux Layer, and the stub Layer.
 
-`packages/core` holds Device reports, exit codes, config files, the scanner, Rule evaluation, the Ledger reader, and the planner.
+`packages/core` holds Device reports, exit codes, config files, the scanner, Rule evaluation, the Ledger reader, the planner, and Sync.
 
 `packages/cli` holds the command line entry.
 

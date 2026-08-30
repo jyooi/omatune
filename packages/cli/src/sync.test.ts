@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test"
 import { ledgerPath, readItunesdbTracks } from "@omatune/core"
 import { fakeLayer, writeFakeDevice } from "@omatune/platform"
+import { existsSync } from "node:fs"
 import { mkdir, mkdtemp, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -344,4 +345,38 @@ path = "*"
   const result = await sync(dir, fake, ["--yes", "--strict", "--no-eject"])
   expect(result.code).toBe(1)
   expect(result.stderr).toContain("Skipped")
+})
+
+test("sync --json prints the plan before Device files exist", async () => {
+  const dir = await makeDir("omatune-sync-live-")
+  const fake = await makeDir("omatune-sync-fake-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "tone-suite"
+`,
+  )
+  await emptyClassic(fake)
+  const dbPath = join(volume(fake), "iPod_Control", "iTunes", "iTunesDB")
+  const seen: Array<{ type: unknown; itunesdb: boolean }> = []
+  const result = await runMain(
+    ["sync", "--device", SERIAL, "--config", dir, "--yes", "--no-eject", "--json"],
+    fakeLayer(fake),
+    testEnv(),
+    {
+      stdoutWrite: (text) => {
+        const event = JSON.parse(text) as { type: unknown }
+        seen.push({ type: event.type, itunesdb: existsSync(dbPath) })
+      },
+    },
+  )
+  expect(result.code).toBe(0)
+  expect(seen[0]?.type).toBe("plan")
+  expect(seen[0]?.itunesdb).toBe(false)
+  expect(seen.some((event) => event.type === "progress")).toBe(true)
+  expect(seen[seen.length - 1]?.type).toBe("report")
+  expect(await Bun.file(dbPath).exists()).toBe(true)
 })
