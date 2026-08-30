@@ -2,7 +2,7 @@ import { expect, test } from "bun:test"
 import { copyFile, mkdir, mkdtemp, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { devicePathFor, sha256File, type SyncPlan } from "@omatune/core"
+import { devicePathFor, encodePlayCounts, playDataPath, sha256File, type SyncPlan } from "@omatune/core"
 import { fakeLayer, writeFakeDevice } from "@omatune/platform"
 import { runMain } from "./main.ts"
 
@@ -515,4 +515,37 @@ path = "*"
   expect(result.code).toBe(1)
   expect(result.stderr).toContain("Skipped")
   expect(result.json?.skipped.some((row) => row.reason === "unsupported_format")).toBe(true)
+})
+
+test("plan reports pending Play Counts entries without merging", async () => {
+  const dir = await makeDir("omatune-plan-play-")
+  const fake = await makeDir("omatune-plan-fake-")
+  const dataHome = await makeDir("omatune-plan-data-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "tone-suite/01-pregap.mp3"
+`,
+  )
+  await classicDevice(fake)
+  await mkdir(join(fake, SERIAL, "volume", "iPod_Control", "iTunes"), { recursive: true })
+  await Bun.write(
+    join(fake, SERIAL, "volume", "iPod_Control", "iTunes", "Play Counts"),
+    encodePlayCounts([
+      { playCount: 1, lastPlayed: 1, rating: 80, skipCount: 1, lastSkipped: 1 },
+      {},
+    ]),
+  )
+  const result = await runMain(
+    ["plan", "--device", SERIAL, "--config", dir, "--json"],
+    fakeLayer(fake),
+    testEnv({ XDG_DATA_HOME: dataHome }),
+  )
+  expect(result.code).toBe(0)
+  const json = JSON.parse(result.stdout) as SyncPlan
+  expect(json.playCountsPending).toBe(2)
+  expect(await Bun.file(playDataPath(join(dataHome, "omatune"))).exists()).toBe(false)
 })

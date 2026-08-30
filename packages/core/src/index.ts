@@ -60,6 +60,24 @@ export {
   parseArtworkdb,
   thumbnailsOf,
 } from "@omatune/device-database"
+export {
+  emptyPlayData,
+  encodePlayCounts,
+  loadPlayData,
+  mergePlayDataEntry,
+  playDataPath,
+  resolveDataDir,
+  serializePlayData,
+  writePlayDataAtomic,
+} from "./play-data.ts"
+export type { HostPlayData, PlayDataFile, WrittenEcho } from "./play-data.ts"
+export {
+  FOREIGN_READ_BACK_SKIP,
+  countPlayCountsEntries,
+  fileNameHashPrefix,
+  matchReadBackHash,
+  runPlayDataReadBack,
+} from "./read-back.ts"
 export { runSync, Sync, SyncLive, SyncError, runReadBack, runArtwork } from "./sync.ts"
 export type {
   SyncEvent,

@@ -7,6 +7,7 @@ import {
   type Track,
 } from "@omatune/device-database"
 import type { LedgerEntry } from "./ledger.ts"
+import { ZERO_PLAY_DATA, type HostPlayData } from "./play-data.ts"
 import type { SelectedTrack } from "./rules.ts"
 
 const MHBD_HEADER = 0xf4
@@ -26,6 +27,7 @@ export type ItunesdbTrack = {
   readonly dbid: bigint
   readonly selected: SelectedTrack
   readonly hasArtwork: boolean
+  readonly playData: HostPlayData
 }
 
 export function buildItunesdb(tracks: ReadonlyArray<ItunesdbTrack>): Itunesdb {
@@ -52,6 +54,7 @@ export function tracksForDatabase(
   entries: ReadonlyArray<LedgerEntry>,
   selectedByPath: ReadonlyMap<string, SelectedTrack>,
   artworkDbids: ReadonlySet<string> = new Set(),
+  playDataByHash: ReadonlyMap<string, HostPlayData> = new Map(),
 ): ItunesdbTrack[] {
   const out: ItunesdbTrack[] = []
   for (const entry of entries) {
@@ -66,6 +69,7 @@ export function tracksForDatabase(
       dbid: BigInt(entry.dbid),
       selected,
       hasArtwork: artworkDbids.has(entry.dbid),
+      playData: playDataByHash.get(entry.sha256) ?? { ...ZERO_PLAY_DATA, path: entry.libraryPath },
     })
   }
   return out
@@ -143,13 +147,14 @@ function mhitOf(track: ItunesdbTrack, trackId: number): Chunk {
   writeU32(header, 36, track.size)
   writeU32(header, 40, durationMs(tags.durationSeconds))
   writeU32(header, 44, tags.track ?? 0)
-  writeU32(header, 80, 0)
-  writeU32(header, 88, 0)
+  header[31] = track.playData.rating & 0xff
+  writeU32(header, 80, track.playData.playCount)
+  writeU32(header, 88, track.playData.lastPlayed)
   writeU32(header, 92, tags.disc ?? 0)
-  writeU32(header, 108, 0)
+  writeU32(header, 108, track.playData.bookmark)
   writeU64(header, 112, track.dbid)
-  writeU32(header, 156, 0)
-  writeU32(header, 160, 0)
+  writeU32(header, 156, track.playData.skipCount)
+  writeU32(header, 160, track.playData.lastSkipped)
   header[164] = track.hasArtwork ? 1 : 2
   const gapless = tags.gapless
   if (gapless) {

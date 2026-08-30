@@ -1,6 +1,7 @@
 import {
   ExitCode,
   buildPlan,
+  countPlayCountsEntries,
   evaluateSelection,
   formatConfigIssue,
   hashesForAdds,
@@ -83,14 +84,20 @@ export async function runPlan(
   const files = await scanLibrary(loaded.config.library)
   const { selected, skipped } = evaluateSelection(files, selection.value)
   const hashes = await hashesForAdds(loaded.config.library, selected, ledgerResult.value)
+  const kind = planKind({ ownerState: report.ownerState, hasLedger: ledgerResult.value !== null })
+  const playCountsPending =
+    kind === "wipe" || report.mountPoint === null
+      ? 0
+      : await countPlayCountsEntries(report.mountPoint)
   const plan = buildPlan({
-    kind: planKind({ ownerState: report.ownerState, hasLedger: ledgerResult.value !== null }),
+    kind,
     selected,
     skipped,
     ledger: ledgerResult.value,
     hashes,
     freeBytes: report.freeSpaceBytes,
     forceModel: flags.forceModel,
+    playCountsPending,
   })
   if (plan.freeSpaceAfter < 0) {
     return refused(

@@ -1,6 +1,7 @@
 import {
   ExitCode,
   resolveConfigDir,
+  resolveDataDir,
   runSync,
   type SyncEvent,
   type SyncPlan,
@@ -29,6 +30,10 @@ export async function runSyncCommand(
     flag: flags.config,
     envValue: env.OMATUNE_CONFIG,
   })
+  const dataDir = resolveDataDir({
+    xdgDataHome: env.XDG_DATA_HOME,
+    home: env.HOME,
+  })
   const events: SyncEvent[] = []
   const confirm = (plan: SyncPlan) => confirmSync(plan, flags, io)
   const write = io.stdoutWrite
@@ -40,6 +45,7 @@ export async function runSyncCommand(
       noEject: flags.noEject,
       strict: flags.strict,
       forceModel: flags.forceModel,
+      dataDir,
       confirm,
     }),
     (event) =>
@@ -111,6 +117,9 @@ function formatLive(event: SyncEvent, json: boolean): string {
   if (event.type === "plan") {
     return formatPlanText(event.plan)
   }
+  if (event.type === "message") {
+    return `${event.text}\n`
+  }
   if (event.type === "report") {
     const lines = [
       `Added: ${event.added}`,
@@ -140,6 +149,9 @@ function renderEvents(events: ReadonlyArray<SyncEvent>, json: boolean, ejected: 
   for (const event of events) {
     if (event.type === "plan") {
       lines.push(formatPlanText(event.plan).trimEnd())
+    }
+    if (event.type === "message") {
+      lines.push(event.text)
     }
     if (event.type === "report") {
       lines.push(`Added: ${event.added}`)

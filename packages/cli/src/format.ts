@@ -42,6 +42,7 @@ export function formatPlanText(plan: SyncPlan): string {
     `Skipped: ${plan.skipped.length}`,
     `Bytes needed: ${formatBytes(plan.bytesNeeded)}`,
     `Free space after: ${formatBytes(plan.freeSpaceAfter)}`,
+    `Play Counts pending: ${plan.playCountsPending}`,
   ]
   if (plan.forceModel) {
     lines.push(`Force model: ${plan.forceModel}`)

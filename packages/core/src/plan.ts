@@ -23,6 +23,7 @@ export type SyncPlan = {
   readonly bytesNeeded: number
   readonly freeSpaceAfter: number
   readonly forceModel: string | null
+  readonly playCountsPending: number
 }
 
 const FOLDER_COUNT = 50
@@ -116,6 +117,7 @@ export function buildPlan(input: {
   readonly hashes: ReadonlyMap<string, string>
   readonly freeBytes: number
   readonly forceModel: string | null
+  readonly playCountsPending?: number
 }): SyncPlan {
   const ledgerTracks = input.ledger?.tracks ?? []
   const ledgerByPath = new Map<string, LedgerEntry>()
@@ -175,6 +177,7 @@ export function buildPlan(input: {
     bytesNeeded,
     freeSpaceAfter: input.freeBytes - bytesNeeded + bytesFreed,
     forceModel: input.forceModel,
+    playCountsPending: input.playCountsPending ?? 0,
   }
 }
 
