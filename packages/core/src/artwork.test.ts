@@ -141,13 +141,39 @@ test("matching Ledger hashes skip a Device Artwork rewrite", async () => {
   const first = await writeDeviceArtwork(input)
   expect(first.wrote).toBe(true)
   const dbPath = join(root, "mount", "iPod_Control", "Artwork", "ArtworkDB")
-  await Bun.write(dbPath, "marker")
+  const before = new Uint8Array(await Bun.file(dbPath).arrayBuffer())
   const second = await writeDeviceArtwork({
     ...input,
     priorHashes: first.hashes,
   })
   expect(second.wrote).toBe(false)
-  expect(await Bun.file(dbPath).text()).toBe("marker")
+  expect(new Uint8Array(await Bun.file(dbPath).arrayBuffer())).toEqual(before)
+})
+
+test("a corrupt ArtworkDB is rewritten when Ledger hashes still match", async () => {
+  if (!CLASSIC) {
+    throw new Error("missing classic family")
+  }
+  const root = await mkdtemp(join(tmpdir(), "omatune-art-corrupt-"))
+  const cover = pngSolid(4, 4, [46, 139, 87])
+  const input = {
+    mountPoint: join(root, "mount"),
+    family: CLASSIC,
+    cacheDir: join(root, "cache"),
+    tracks: [track("a.mp3", "9", "A", "B", cover)],
+  }
+  const first = await writeDeviceArtwork(input)
+  const dbPath = join(root, "mount", "iPod_Control", "Artwork", "ArtworkDB")
+  await Bun.write(dbPath, "marker")
+  const second = await writeDeviceArtwork({
+    ...input,
+    priorHashes: first.hashes,
+  })
+  expect(second.wrote).toBe(true)
+  expect(second.dbidsWithArtwork.has("9")).toBe(true)
+  const { imageItems, parseArtworkdb } = await import("@omatune/device-database")
+  const bytes = new Uint8Array(await Bun.file(dbPath).arrayBuffer())
+  expect(imageItems(parseArtworkdb(bytes))).toHaveLength(1)
 })
 
 test("a missing ArtworkDB is rewritten when Ledger hashes still match", async () => {

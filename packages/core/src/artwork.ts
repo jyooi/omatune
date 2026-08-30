@@ -310,7 +310,7 @@ async function artworkFilesMissing(
     const db = parseArtworkdb(new Uint8Array(await dbFile.arrayBuffer()))
     hasRows = imageItems(db).length > 0
   } catch {
-    hasRows = false
+    return true
   }
   if (!hasRows) {
     return false
