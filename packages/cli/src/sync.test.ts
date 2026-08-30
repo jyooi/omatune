@@ -1,5 +1,14 @@
 import { expect, test } from "bun:test"
-import { ledgerPath, readItunesdbTracks } from "@omatune/core"
+import {
+  artworkFiles,
+  artworkFormatRows,
+  imageItems,
+  ledgerPath,
+  mhiiDbid,
+  parseArtworkdb,
+  readItunesdbTracks,
+  thumbnailsOf,
+} from "@omatune/core"
 import { fakeLayer, writeFakeDevice } from "@omatune/platform"
 import { existsSync } from "node:fs"
 import { mkdir, mkdtemp, stat, writeFile } from "node:fs/promises"
@@ -138,8 +147,10 @@ path = "tone-suite"
   const first = await sync(dir, fake, ["--yes", "--no-eject"])
   expect(first.code).toBe(0)
   const dbPath = join(volume(fake), "iPod_Control", "iTunes", "iTunesDB")
+  const artworkPath = join(volume(fake), "iPod_Control", "Artwork", "ArtworkDB")
   const musicRoot = join(volume(fake), "iPod_Control", "Music")
   const beforeDb = await stat(dbPath)
+  const beforeArtwork = await stat(artworkPath)
   const musicFiles: string[] = []
   const walk = async (abs: string) => {
     const iter = new Bun.Glob("**/*").scan({ cwd: abs, onlyFiles: true })
@@ -154,11 +165,38 @@ path = "tone-suite"
   const afterDb = await stat(dbPath)
   expect(afterDb.mtimeMs).toBe(beforeDb.mtimeMs)
   expect(afterDb.size).toBe(beforeDb.size)
+  const afterArtwork = await stat(artworkPath)
+  expect(afterArtwork.mtimeMs).toBe(beforeArtwork.mtimeMs)
+  expect(afterArtwork.size).toBe(beforeArtwork.size)
   const afterMusic = await Promise.all(musicFiles.map((file) => stat(file)))
   for (let i = 0; i < beforeMusic.length; i += 1) {
     expect(afterMusic[i]?.mtimeMs).toBe(beforeMusic[i]?.mtimeMs)
     expect(afterMusic[i]?.size).toBe(beforeMusic[i]?.size)
   }
+})
+
+test("second Sync restores a missing ArtworkDB", async () => {
+  const dir = await makeDir("omatune-sync-art-repair-")
+  const fake = await makeDir("omatune-sync-fake-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "tone-suite"
+`,
+  )
+  await emptyClassic(fake)
+  const first = await sync(dir, fake, ["--yes", "--no-eject"])
+  expect(first.code).toBe(0)
+  const artworkPath = join(volume(fake), "iPod_Control", "Artwork", "ArtworkDB")
+  await Bun.file(artworkPath).unlink()
+  const second = await sync(dir, fake, ["--yes", "--no-eject"])
+  expect(second.code).toBe(0)
+  const bytes = new Uint8Array(await Bun.file(artworkPath).arrayBuffer())
+  const items = imageItems(parseArtworkdb(bytes))
+  expect(items).toHaveLength(4)
 })
 
 test("second Sync deletes Music files that no Ledger entry names", async () => {
@@ -345,6 +383,109 @@ path = "*"
   const result = await sync(dir, fake, ["--yes", "--strict", "--no-eject"])
   expect(result.code).toBe(1)
   expect(result.stderr).toContain("Skipped")
+})
+
+test("Sync of the Verification Library writes ArtworkDB the S2 parser reads", async () => {
+  const dir = await makeDir("omatune-sync-art-")
+  const fake = await makeDir("omatune-sync-fake-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "tone-suite"
+
+[[include]]
+path = "field-recordings"
+
+[[include]]
+path = "dual-disc"
+`,
+  )
+  await emptyClassic(fake)
+  const result = await sync(dir, fake, ["--yes", "--no-eject"])
+  expect(result.code).toBe(0)
+  const dbPath = join(volume(fake), "iPod_Control", "Artwork", "ArtworkDB")
+  const bytes = new Uint8Array(await Bun.file(dbPath).arrayBuffer())
+  const db = parseArtworkdb(bytes)
+  const items = imageItems(db)
+  expect(items).toHaveLength(11)
+  const family = "iPod classic 120 GB (2008)"
+  const rows = artworkFormatRows[family] ?? []
+  expect(rows.map((row) => row.id)).toEqual([1055, 1060, 1061])
+  expect(artworkFiles(db).map((file) => file.formatId)).toEqual([1055, 1060, 1061])
+  for (const row of rows) {
+    const ithmbPath = join(volume(fake), "iPod_Control", "Artwork", `F${row.id}_1.ithmb`)
+    const ithmb = new Uint8Array(await Bun.file(ithmbPath).arrayBuffer())
+    expect(ithmb.byteLength).toBe(row.blockBytes * 3)
+  }
+  const itunes = readItunesdbTracks(
+    new Uint8Array(
+      await Bun.file(join(volume(fake), "iPod_Control", "iTunes", "iTunesDB")).arrayBuffer(),
+    ),
+  )
+  expect(itunes).toHaveLength(12)
+  const uncovered = itunes.find((track) => track.title === "Uncovered")
+  expect(uncovered).toBeDefined()
+  expect(uncovered?.hasArtwork).toBe(false)
+  const uncoveredDbid = uncovered?.dbid ?? 0n
+  expect(items.some((item) => mhiiDbid(item) === uncoveredDbid)).toBe(false)
+  const withArt = itunes.filter((track) => track.title !== "Uncovered")
+  expect(withArt.every((track) => track.hasArtwork)).toBe(true)
+  for (const track of withArt) {
+    const item = items.find((entry) => mhiiDbid(entry) === track.dbid)
+    expect(item).toBeDefined()
+    if (!item) {
+      continue
+    }
+    const thumbs = thumbnailsOf(item)
+    expect(thumbs.map((thumb) => thumb.formatId)).toEqual([1055, 1060, 1061])
+    for (const thumb of thumbs) {
+      const row = rows.find((entry) => entry.id === thumb.formatId)
+      expect(thumb.size).toBe(row?.blockBytes)
+      expect(thumb.width).toBe(row?.width)
+      expect(thumb.height).toBe(row?.height)
+    }
+  }
+  const ledger = JSON.parse(await Bun.file(ledgerPath(dir, SERIAL)).text()) as {
+    tracks: Array<{ libraryPath: string; artworkHash: string | null }>
+  }
+  const uncoveredLedger = ledger.tracks.find((track) => track.libraryPath.includes("uncovered"))
+  expect(uncoveredLedger?.artworkHash).toBeNull()
+  expect(ledger.tracks.filter((track) => track.artworkHash !== null)).toHaveLength(11)
+})
+
+test("a mini Device writes no Artwork", async () => {
+  const dir = await makeDir("omatune-sync-mini-")
+  const fake = await makeDir("omatune-sync-fake-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "tone-suite"
+`,
+  )
+  await writeFakeDevice(fake, {
+    serial: SERIAL,
+    modelString: "M9160",
+    filesystemType: "FAT32",
+    freeBytes: 10 * 1024 * 1024 * 1024,
+    owner: "empty",
+  })
+  const result = await sync(dir, fake, ["--yes", "--no-eject"])
+  expect(result.code).toBe(0)
+  expect(await Bun.file(join(volume(fake), "iPod_Control", "Artwork", "ArtworkDB")).exists()).toBe(
+    false,
+  )
+  const itunes = readItunesdbTracks(
+    new Uint8Array(
+      await Bun.file(join(volume(fake), "iPod_Control", "iTunes", "iTunesDB")).arrayBuffer(),
+    ),
+  )
+  expect(itunes.every((track) => track.hasArtwork === false)).toBe(true)
 })
 
 test("sync --json prints the plan before Device files exist", async () => {

@@ -12,6 +12,7 @@
     "@omatune/device-database": "workspace:*",
     "@omatune/platform": "workspace:*",
     "effect": "3.22.1",
+    "jpeg-js": "0.4.4",
     "smol-toml": "1.8.0"
   }
 }

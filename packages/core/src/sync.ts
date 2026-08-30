@@ -43,6 +43,13 @@ import {
 import { acquireSerialLock, releaseSerialLock } from "./lock.ts"
 import { evaluateSelection, type SelectedTrack } from "./rules.ts"
 import { scanLibrary } from "./scan.ts"
+import {
+  artworkCacheDir,
+  tracksForArtwork,
+  writeDeviceArtwork,
+  type ArtworkSkip,
+  type ArtworkWriteResult,
+} from "./artwork.ts"
 import { serializeSignedLayout, tracksForDatabase } from "./itunesdb-write.ts"
 
 export class SyncError extends Data.TaggedError("SyncError")<{
@@ -68,6 +75,7 @@ export type SyncReport = {
   readonly removed: number
   readonly kept: number
   readonly skipped: number
+  readonly artworkSkipped: ReadonlyArray<ArtworkSkip>
   readonly ejected: boolean
 }
 
@@ -318,6 +326,7 @@ async function runPipeline(
   const extra = music.filter((path) => !named.has(path))
   const noop =
     ctx.plan.add.length === 0 && ctx.plan.remove.length === 0 && extra.length === 0
+  let artworkSkipped: ReadonlyArray<ArtworkSkip> = []
   if (!noop) {
     const marker = join(ctx.mountPoint, SYNCING_MARKER)
     await writeFileAtomic(
@@ -388,15 +397,16 @@ async function runPipeline(
     }
     await emitPhase(emit, "copy", bytesDone, bytesTotal, copied, add.length, null)
 
-    await emitPhase(emit, "artwork", 0, 0, 0, 0, null)
-    // HUF-270 Artwork runs here, after copy and before the Device Database write.
-    await runArtwork(ctx)
-
     const now = await Effect.runPromise(platform.now)
     const nextLedger = buildNextLedger(ctx, hashes, now)
+    await emitPhase(emit, "artwork", 0, 0, 0, 0, null)
+    const artwork = await runArtwork(ctx, nextLedger)
+    artworkSkipped = artwork.skipped
+    const artworkDbids = artwork.dbidsWithArtwork
+
     await mkdir(join(ctx.mountPoint, "iPod_Control", "iTunes"), { recursive: true })
     const selectedByPath = new Map(ctx.selected.map((track) => [track.relativePath, track]))
-    const dbTracks = tracksForDatabase(nextLedger.tracks, selectedByPath)
+    const dbTracks = tracksForDatabase(nextLedger.tracks, selectedByPath, artworkDbids)
     await emitPhase(emit, "database", 0, 1, 0, 1, "iTunesDB")
     const unsigned = serializeSignedLayout(dbTracks)
     const signed = signItunesdbForFamily(unsigned, ctx.serial, ctx.family)
@@ -415,7 +425,34 @@ async function runPipeline(
     await emitPhase(emit, "delete", 0, 0, 0, 0, null)
     await emitPhase(emit, "copy", 0, 0, 0, 0, null)
     await emitPhase(emit, "artwork", 0, 0, 0, 0, null)
-    await emitPhase(emit, "database", 0, 0, 0, 0, null)
+    if (ctx.ledger) {
+      const priorHashes = new Map(
+        ctx.ledger.tracks.map((entry) => [entry.libraryPath, entry.artworkHash]),
+      )
+      const artwork = await runArtwork(ctx, ctx.ledger, priorHashes)
+      artworkSkipped = artwork.skipped
+      if (artwork.wrote) {
+        const selectedByPath = new Map(ctx.selected.map((track) => [track.relativePath, track]))
+        await mkdir(join(ctx.mountPoint, "iPod_Control", "iTunes"), { recursive: true })
+        const dbTracks = tracksForDatabase(
+          ctx.ledger.tracks,
+          selectedByPath,
+          artwork.dbidsWithArtwork,
+        )
+        await emitPhase(emit, "database", 0, 1, 0, 1, "iTunesDB")
+        const unsigned = serializeSignedLayout(dbTracks)
+        const signed = signItunesdbForFamily(unsigned, ctx.serial, ctx.family)
+        await writeFileAtomic(join(ctx.mountPoint, ITUNESDB), signed)
+        if (ledgerArtworkChanged(ctx.ledger, artwork.hashes)) {
+          await writeLedgerAtomic(ctx.config.dir, withArtworkHashes(ctx.ledger, artwork.hashes))
+        }
+        await emitPhase(emit, "database", 1, 1, 1, 1, null)
+      } else {
+        await emitPhase(emit, "database", 0, 0, 0, 0, null)
+      }
+    } else {
+      await emitPhase(emit, "database", 0, 0, 0, 0, null)
+    }
   }
 
   const ejected = !request.noEject
@@ -428,6 +465,7 @@ async function runPipeline(
     removed: ctx.plan.remove.length,
     kept: ctx.plan.keep.length,
     skipped: ctx.plan.skipped.length,
+    artworkSkipped,
     ejected,
   })
 }
@@ -436,8 +474,19 @@ export async function runReadBack(_ctx: SyncContext): Promise<void> {
   return
 }
 
-export async function runArtwork(_ctx: SyncContext): Promise<void> {
-  return
+export async function runArtwork(
+  ctx: SyncContext,
+  ledger: Ledger,
+  priorHashes?: ReadonlyMap<string, string | null>,
+): Promise<ArtworkWriteResult> {
+  const selectedByPath = new Map(ctx.selected.map((track) => [track.relativePath, track]))
+  return writeDeviceArtwork({
+    mountPoint: ctx.mountPoint,
+    family: ctx.family,
+    tracks: tracksForArtwork(ledger, selectedByPath),
+    cacheDir: artworkCacheDir(),
+    priorHashes,
+  })
 }
 
 function buildNextLedger(
@@ -479,6 +528,36 @@ function buildNextLedger(
     lastCommitTime: now,
     tracks,
   }
+}
+
+function withArtworkHashes(
+  ledger: Ledger,
+  hashes: ReadonlyMap<string, string | null>,
+): Ledger {
+  return {
+    ...ledger,
+    tracks: ledger.tracks.map((entry) => ({
+      ...entry,
+      artworkHash: hashes.has(entry.libraryPath)
+        ? (hashes.get(entry.libraryPath) ?? null)
+        : entry.artworkHash,
+    })),
+  }
+}
+
+function ledgerArtworkChanged(
+  ledger: Ledger,
+  hashes: ReadonlyMap<string, string | null>,
+): boolean {
+  for (const entry of ledger.tracks) {
+    if (!hashes.has(entry.libraryPath)) {
+      continue
+    }
+    if (hashes.get(entry.libraryPath) !== entry.artworkHash) {
+      return true
+    }
+  }
+  return false
 }
 
 function dbidFor(prior: LedgerEntry | undefined, used: Set<string>): string {

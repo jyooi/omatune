@@ -108,6 +108,13 @@ export {
 export {
   extractThumbnailPpm,
   rgb565LeToRgb888,
+  rgb888ToRgb565Le,
   splitIthmbBlocks,
   writePpm,
 } from "./ithmb.ts";
+export {
+  buildArtworkdb,
+  type ArtworkFileSpec,
+  type ArtworkImageSpec,
+  type ArtworkThumbSpec,
+} from "./artwork-write.ts";

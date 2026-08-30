@@ -10,6 +10,8 @@ export const SYNCING_MARKER = join("iPod_Control", "omatune.syncing")
 export const OWNER_JSON = join("iPod_Control", "omatune.json")
 export const ITUNESDB = join("iPod_Control", "iTunes", "iTunesDB")
 export const PLAY_COUNTS = join("iPod_Control", "iTunes", "Play Counts")
+export const ARTWORK_DIR = join("iPod_Control", "Artwork")
+export const ARTWORKDB = join(ARTWORK_DIR, "ArtworkDB")
 
 export async function copyFileChunked(source: string, dest: string): Promise<void> {
   await mkdir(dirname(dest), { recursive: true })

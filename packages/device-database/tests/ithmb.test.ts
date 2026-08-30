@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   extractThumbnailPpm,
   rgb565LeToRgb888,
+  rgb888ToRgb565Le,
   splitIthmbBlocks,
   writePpm,
 } from "../src/index.ts";
@@ -42,6 +43,14 @@ describe("ithmb RGB565", () => {
     const text = new TextDecoder().decode(ppm.subarray(0, 11));
     expect(text.startsWith("P6\n2 2\n255\n")).toBe(true);
     expect(ppm.byteLength).toBe(11 + 12);
+  });
+
+  test("encodes RGB888 into a padded RGB565 little-endian block", () => {
+    const rgb = Uint8Array.of(0xf8, 0, 0, 0, 0xfc, 0, 0, 0, 0xf8, 0, 0, 0);
+    const block = rgb888ToRgb565Le(rgb, 2, 2, 10);
+    expect(block.byteLength).toBe(10);
+    expect(rgb565LeToRgb888(block, 2, 2)).toEqual(rgb);
+    expect(Array.from(block.subarray(8))).toEqual([0, 0]);
   });
 
   test("extracts a thumbnail to PPM from an ithmb block", () => {

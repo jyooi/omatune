@@ -25,6 +25,7 @@ export type ItunesdbTrack = {
   readonly size: number
   readonly dbid: bigint
   readonly selected: SelectedTrack
+  readonly hasArtwork: boolean
 }
 
 export function buildItunesdb(tracks: ReadonlyArray<ItunesdbTrack>): Itunesdb {
@@ -50,6 +51,7 @@ export function colonPath(devicePath: string): string {
 export function tracksForDatabase(
   entries: ReadonlyArray<LedgerEntry>,
   selectedByPath: ReadonlyMap<string, SelectedTrack>,
+  artworkDbids: ReadonlySet<string> = new Set(),
 ): ItunesdbTrack[] {
   const out: ItunesdbTrack[] = []
   for (const entry of entries) {
@@ -63,6 +65,7 @@ export function tracksForDatabase(
       size: entry.size,
       dbid: BigInt(entry.dbid),
       selected,
+      hasArtwork: artworkDbids.has(entry.dbid),
     })
   }
   return out
@@ -147,7 +150,7 @@ function mhitOf(track: ItunesdbTrack, trackId: number): Chunk {
   writeU64(header, 112, track.dbid)
   writeU32(header, 156, 0)
   writeU32(header, 160, 0)
-  header[164] = tags.hasArtwork ? 1 : 2
+  header[164] = track.hasArtwork ? 1 : 2
   const gapless = tags.gapless
   if (gapless) {
     writeU32(header, 184, gapless.encoderDelay)
