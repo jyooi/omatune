@@ -1,0 +1,16 @@
+{
+  "name": "@omatune/core",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target bun"
+  },
+  "dependencies": {
+    "@omatune/device-database": "workspace:*",
+    "@omatune/platform": "workspace:*",
+    "effect": "3.22.1"
+  }
+}
