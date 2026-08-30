@@ -16,7 +16,7 @@ Do not strip the binary.
 `packaging/homebrew/omatune.rb` holds a formula for macOS.
 Set `version` to the Release tag without the `v` prefix.
 Set each `sha256` to the macOS binary hash.
-Point each `url` at the GitHub Release asset.
+Set each `url` to the GitHub Release asset.
 
 ## Publish
 
