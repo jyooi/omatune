@@ -1,4 +1,4 @@
-import type { DeviceReport } from "@omatune/core"
+import type { DeviceReport, SyncPlan } from "@omatune/core"
 
 function pad(value: string, width: number): string {
   if (value.length >= width) {
@@ -27,6 +27,29 @@ export function formatJson(reports: ReadonlyArray<DeviceReport>): string {
     return ""
   }
   return reports.map((report) => JSON.stringify(report)).join("\n") + "\n"
+}
+
+export function formatPlanJson(plan: SyncPlan): string {
+  return `${JSON.stringify(plan)}\n`
+}
+
+export function formatPlanText(plan: SyncPlan): string {
+  const lines = [
+    `Kind: ${plan.kind}`,
+    `Add: ${plan.add.length}`,
+    `Remove: ${plan.remove.length}`,
+    `Keep: ${plan.keep.length}`,
+    `Skipped: ${plan.skipped.length}`,
+    `Bytes needed: ${formatBytes(plan.bytesNeeded)}`,
+    `Free space after: ${formatBytes(plan.freeSpaceAfter)}`,
+  ]
+  if (plan.forceModel) {
+    lines.push(`Force model: ${plan.forceModel}`)
+  }
+  for (const skip of plan.skipped) {
+    lines.push(`Skip ${skip.path}: ${skip.reason}`)
+  }
+  return `${lines.join("\n")}\n`
 }
 
 export function formatTable(reports: ReadonlyArray<DeviceReport>): string {

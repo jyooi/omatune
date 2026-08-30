@@ -4,6 +4,7 @@ import { runTui } from "@omatune/tui"
 import { Effect, type Layer } from "effect"
 import { parseArgv } from "./flags.ts"
 import { formatJson, formatTable } from "./format.ts"
+import { runPlan } from "./plan.ts"
 import { runStatus } from "./status.ts"
 
 export type RunResult = {
@@ -12,7 +13,7 @@ export type RunResult = {
   stderr: string
 }
 
-const NOT_IMPLEMENTED = new Set(["sync", "plan"])
+const NOT_IMPLEMENTED = new Set(["sync"])
 
 function refused(message: string): RunResult {
   return { code: ExitCode.RefusedBeforeChange, stdout: "", stderr: `${message}\n` }
@@ -46,6 +47,10 @@ export async function runMain(
 
   if (parsed.subcommand === "status") {
     return runStatus(parsed, env)
+  }
+
+  if (parsed.subcommand === "plan") {
+    return runPlan(parsed, layer, env)
   }
 
   if (NOT_IMPLEMENTED.has(parsed.subcommand)) {
