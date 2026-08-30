@@ -1,6 +1,11 @@
 import { modelTable } from "./generated.ts"
 import { parseModelNum } from "./parse-support-table.ts"
 import type { FamilyRecord } from "./types.ts"
+import { libgpodKeyForUsbProductId } from "./usb-product.ts"
+
+function present(value: string | null | undefined): value is string {
+  return typeof value === "string" && value.trim().length > 0
+}
 
 export function allFamilies(): ReadonlyArray<FamilyRecord> {
   return modelTable
@@ -53,15 +58,25 @@ export function lookupByModelNumStr(model: string): FamilyRecord | undefined {
   )
 }
 
-export function lookupFamily(input: { modelString?: string | null; libgpodKey?: string | null }): FamilyRecord | undefined {
-  if (input.modelString) {
+export function lookupFamily(input: {
+  modelString?: string | null
+  libgpodKey?: string | null
+  productId?: number | null
+}): FamilyRecord | undefined {
+  if (present(input.modelString)) {
     const byModel = lookupByModelNumStr(input.modelString)
     if (byModel) {
       return byModel
     }
   }
-  if (input.libgpodKey) {
+  if (present(input.libgpodKey)) {
     return lookupByLibgpodKey(input.libgpodKey)
+  }
+  if (!present(input.modelString) && input.productId != null) {
+    const key = libgpodKeyForUsbProductId(input.productId)
+    if (key) {
+      return lookupByLibgpodKey(key)
+    }
   }
   return undefined
 }

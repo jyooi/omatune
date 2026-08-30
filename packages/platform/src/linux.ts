@@ -15,6 +15,8 @@
  * - ModelNumStr
  *
  * Those files live under iPod_Control/Device/ on the mounted volume.
+ * ModelNumStr can be absent. SysInfo on the reference classic holds FirewireGuid only.
+ * Family lookup then uses the USB disk-mode product ID on DeviceInfo.
  */
 import { readdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
