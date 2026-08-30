@@ -25,6 +25,7 @@ Public CC0 Tracks are in `fixtures/audio/`. See `fixtures/audio/README.md`.
 
 Workspace packages live in `packages/`.
 `Platform` in `packages/platform` is the only hardware seam.
+Config and Selection files load in `packages/core/src/config.ts`.
 
 ## Maintaining this file
 
