@@ -223,7 +223,7 @@ function mhsdType(chunk: Chunk): number {
 }
 
 function mhodType(chunk: Chunk): number {
-  return u32At(chunk.header, 12);
+  return u16At(chunk.header, 12);
 }
 
 function u16At(header: Uint8Array, offset: number): number {

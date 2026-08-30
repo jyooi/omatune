@@ -59,6 +59,21 @@ describe("ArtworkDB codec", () => {
     expect(artworkFiles(db)).toEqual([{ formatId: 1055, imageSize: 32768 }]);
   });
 
+  test("reads mhod type as two bytes when padding is 2", () => {
+    const nested = mhni({ ...thumb, mhodPadding: 2 });
+    const image = mhii({
+      dbid: 1n,
+      thumbs: [containerMhod(nested, 2)],
+    });
+    const bytes = mhfd([artworkMhsd(1, mhli([image]))]);
+    const db = parseArtworkdb(bytes);
+    const item = imageItems(db)[0];
+    if (!item) {
+      throw new Error("missing image");
+    }
+    expect(thumbnailsOf(item)).toEqual([thumb]);
+  });
+
   test("named chunk parsers round-trip mhii, mhni, and mhif", () => {
     const name = mhni(thumb);
     const image = mhii({

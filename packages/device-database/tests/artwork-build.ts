@@ -1,4 +1,4 @@
-import { concat, fourCc, paddedHeader, u16, u32 } from "./build.ts";
+import { concat, fourCc, paddedHeader, u8, u16, u32 } from "./build.ts";
 
 function encodeUtf16le(text: string): Uint8Array {
   const out = new Uint8Array(text.length * 2);
@@ -9,19 +9,37 @@ function encodeUtf16le(text: string): Uint8Array {
   return out;
 }
 
-export function artworkStringMhod(type: number, text: string): Uint8Array {
+function artworkMhodType(type: number, padding = 0): Uint8Array {
+  return concat(u16(type), u8(0), u8(padding));
+}
+
+export function artworkStringMhod(
+  type: number,
+  text: string,
+  padding = 0,
+): Uint8Array {
   const encoded = encodeUtf16le(text);
   const body = concat(u32(encoded.byteLength), u32(2), u32(0), encoded);
   const headerLength = 24;
   const total = headerLength + body.byteLength;
-  const header = paddedHeader("mhod", headerLength, total, concat(u32(type), u32(0)));
+  const header = paddedHeader(
+    "mhod",
+    headerLength,
+    total,
+    concat(artworkMhodType(type, padding), u32(0)),
+  );
   return concat(header, body);
 }
 
-export function containerMhod(child: Uint8Array): Uint8Array {
+export function containerMhod(child: Uint8Array, padding = 0): Uint8Array {
   const headerLength = 24;
   const total = headerLength + child.byteLength;
-  const header = paddedHeader("mhod", headerLength, total, concat(u32(2), u32(0)));
+  const header = paddedHeader(
+    "mhod",
+    headerLength,
+    total,
+    concat(artworkMhodType(2, padding), u32(0)),
+  );
   return concat(header, child);
 }
 
@@ -32,8 +50,9 @@ export function mhni(fields: {
   width: number;
   height: number;
   fileName: string;
+  mhodPadding?: number;
 }): Uint8Array {
-  const name = artworkStringMhod(3, fields.fileName);
+  const name = artworkStringMhod(3, fields.fileName, fields.mhodPadding ?? 0);
   const headerLength = 76;
   const total = headerLength + name.byteLength;
   const rest = new Uint8Array(headerLength - 12);
