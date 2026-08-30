@@ -21,6 +21,11 @@ Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/
 
 Public CC0 Tracks are in `fixtures/audio/`. See `fixtures/audio/README.md`.
 
+### Device Database codec
+
+The iTunesDB codec is in `packages/device-database`.
+The S2 golden test reads `fixtures/device/` when the private Fixture is present.
+
 ## Packages
 
 Workspace packages live in `packages/`.
