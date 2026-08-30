@@ -42,7 +42,7 @@ Build every package with `bun run build`.
 
 ## Packages
 
-`packages/device-database` holds the model table.
+`packages/device-database` holds the model table and the iTunesDB codec.
 
 `packages/platform` holds the Platform service, the fake Layer, the Linux Layer, and the stub Layer.
 
