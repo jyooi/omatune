@@ -151,7 +151,7 @@ function mhitOf(track: ItunesdbTrack, trackId: number): Chunk {
   const gapless = tags.gapless
   if (gapless) {
     writeU32(header, 184, gapless.encoderDelay)
-    writeU64(header, 188, sampleCount(tags.durationSeconds))
+    writeU64(header, 188, gapless.sampleCount)
     writeU32(header, 200, gapless.encoderPadding)
     writeU16(header, 256, 1)
     writeU16(header, 258, 1)
@@ -177,13 +177,6 @@ function durationMs(seconds: number | null): number {
     return 0
   }
   return Math.round(seconds * 1000)
-}
-
-function sampleCount(seconds: number | null): bigint {
-  if (seconds === null || !Number.isFinite(seconds) || seconds < 0) {
-    return 0n
-  }
-  return BigInt(Math.round(seconds * 44100))
 }
 
 function fileName(path: string): string {

@@ -380,3 +380,75 @@ path = "tone-suite"
   expect(seen[seen.length - 1]?.type).toBe("report")
   expect(await Bun.file(dbPath).exists()).toBe(true)
 })
+
+const GAPLESS_PAIR = {
+  pregap: 576,
+  sampleCount: 88200n,
+  postgap: 1080,
+  gaplessData: 0,
+  gaplessTrackFlag: 1,
+  gaplessAlbumFlag: 1,
+}
+
+const GAPLESS_ABSENT = {
+  pregap: 0,
+  sampleCount: 0n,
+  postgap: 0,
+  gaplessData: 0,
+  gaplessTrackFlag: 0,
+  gaplessAlbumFlag: 0,
+}
+
+const GAPLESS_SELECTION = `version = 1
+
+[[include]]
+path = "tone-suite/01-pregap.mp3"
+
+[[include]]
+path = "tone-suite/02-postgap.mp3"
+
+[[include]]
+path = "field-recordings/01-alpha.m4a"
+`
+
+test("gapless pair round-trips pregap, postgap, sample count, and flags", async () => {
+  const dir = await makeDir("omatune-sync-gapless-")
+  const fake = await makeDir("omatune-sync-fake-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(dir, GAPLESS_SELECTION)
+  await emptyClassic(fake)
+  const result = await sync(dir, fake, ["--yes", "--no-eject"])
+  expect(result.code).toBe(0)
+  const bytes = new Uint8Array(
+    await Bun.file(join(volume(fake), "iPod_Control", "iTunes", "iTunesDB")).arrayBuffer(),
+  )
+  const tracks = readItunesdbTracks(bytes)
+  const byTitle = new Map(tracks.map((track) => [track.title, track]))
+  expect(byTitle.get("Pregap")?.gapless).toEqual(GAPLESS_PAIR)
+  expect(byTitle.get("Postgap")?.gapless).toEqual(GAPLESS_PAIR)
+  expect(byTitle.get("Alpha")?.gapless).toEqual(GAPLESS_ABSENT)
+})
+
+test("mini family writes gapless fields the firmware may ignore", async () => {
+  const dir = await makeDir("omatune-sync-gapless-mini-")
+  const fake = await makeDir("omatune-sync-fake-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(dir, GAPLESS_SELECTION)
+  await writeFakeDevice(fake, {
+    serial: SERIAL,
+    modelString: "M9160",
+    filesystemType: "FAT32",
+    freeBytes: 10 * 1024 * 1024 * 1024,
+    owner: "empty",
+  })
+  const result = await sync(dir, fake, ["--yes", "--no-eject"])
+  expect(result.code).toBe(0)
+  const bytes = new Uint8Array(
+    await Bun.file(join(volume(fake), "iPod_Control", "iTunes", "iTunesDB")).arrayBuffer(),
+  )
+  const tracks = readItunesdbTracks(bytes)
+  const byTitle = new Map(tracks.map((track) => [track.title, track]))
+  expect(byTitle.get("Pregap")?.gapless).toEqual(GAPLESS_PAIR)
+  expect(byTitle.get("Postgap")?.gapless).toEqual(GAPLESS_PAIR)
+  expect(byTitle.get("Alpha")?.gapless).toEqual(GAPLESS_ABSENT)
+})

@@ -285,6 +285,7 @@ function main(): void {
               role: spec.gaplessRole,
               encoderDelay: tags.gapless.encoderDelay,
               encoderPadding: tags.gapless.encoderPadding,
+              sampleCount: Number(tags.gapless.sampleCount),
             }
           : null,
     });

@@ -3,6 +3,7 @@ export type Codec = "mp3" | "aac" | "alac";
 export type Gapless = {
   encoderDelay: number;
   encoderPadding: number;
+  sampleCount: bigint;
 };
 
 export type TrackTags = {
@@ -46,7 +47,7 @@ function readMp3(bytes: Uint8Array): TrackTags {
     artworkMime: id3.artwork?.mime ?? null,
     artworkBytes: id3.artwork?.bytes ?? null,
     codec: "mp3",
-    gapless: readLameGapless(bytes.subarray(audioStart)),
+    gapless: readMp3Gapless(id3.itunSmpb, bytes.subarray(audioStart)),
     durationSeconds: mpegDurationSeconds(bytes, audioStart),
   };
 }
@@ -73,6 +74,7 @@ type Id3Parse = {
   audioStart: number;
   text: Record<string, string>;
   artwork: Id3Artwork | null;
+  itunSmpb: string | null;
 };
 
 export function parseId3(bytes: Uint8Array): Id3Parse {
@@ -87,6 +89,7 @@ export function parseId3(bytes: Uint8Array): Id3Parse {
   const end = 10 + size;
   const text: Record<string, string> = {};
   let artwork: Id3Artwork | null = null;
+  let itunSmpb: string | null = null;
   while (pos + 10 <= end) {
     const id = ascii(bytes.subarray(pos, pos + 4));
     if (id === "\u0000\u0000\u0000\u0000" || id.trim() === "") {
@@ -97,12 +100,17 @@ export function parseId3(bytes: Uint8Array): Id3Parse {
     const data = bytes.subarray(pos + 10, pos + 10 + frameSize);
     if (id === "APIC") {
       artwork = parseApic(data);
-    } else if (id.startsWith("T") && id !== "TXXX") {
+    } else if (id === "TXXX" || id === "COMM") {
+      const smpb = readItunSmpbFrame(id, data);
+      if (smpb && itunSmpb === null) {
+        itunSmpb = smpb;
+      }
+    } else if (id.startsWith("T")) {
       text[id] = decodeId3Text(data);
     }
     pos += 10 + frameSize;
   }
-  return { audioStart: end, text, artwork };
+  return { audioStart: end, text, artwork, itunSmpb };
 }
 
 function parseApic(data: Uint8Array): Id3Artwork {
@@ -136,19 +144,71 @@ function decodeId3Text(data: Uint8Array): string {
   if (data.length === 0) {
     return "";
   }
-  const encoding = data[0];
-  const payload = data.subarray(1);
+  const encoding = data[0] ?? 0;
+  return decodeId3Payload(encoding, data.subarray(1)).split("\0")[0] ?? "";
+}
+
+function readItunSmpbFrame(id: string, data: Uint8Array): string | null {
+  if (data.length < 2) {
+    return null;
+  }
+  const encoding = data[0] ?? 0;
+  let pos = 1;
+  if (id === "COMM") {
+    if (data.length < 5) {
+      return null;
+    }
+    pos = 4;
+  }
+  const desc = readId3Encoded(data, encoding, pos);
+  if (desc.text !== "iTunSMPB") {
+    return null;
+  }
+  const text = decodeId3Payload(encoding, data.subarray(desc.next)).trim();
+  return text.length > 0 ? text : null;
+}
+
+function readId3Encoded(
+  data: Uint8Array,
+  encoding: number,
+  start: number,
+): { text: string; next: number } {
+  const wide = encoding === 1 || encoding === 2;
+  if (wide) {
+    let i = start;
+    while (i + 1 < data.length) {
+      if (data[i] === 0 && data[i + 1] === 0) {
+        return {
+          text: decodeUtf16(data.subarray(start, i), encoding === 1).replace(/\0+$/g, ""),
+          next: i + 2,
+        };
+      }
+      i += 2;
+    }
+    return {
+      text: decodeUtf16(data.subarray(start), encoding === 1).replace(/\0+$/g, ""),
+      next: data.length,
+    };
+  }
+  const end = indexOfByte(data, 0, start);
+  return {
+    text: decodeId3Payload(encoding, data.subarray(start, end)),
+    next: Math.min(end + 1, data.length),
+  };
+}
+
+function decodeId3Payload(encoding: number, payload: Uint8Array): string {
   let text: string;
-  if (encoding === 0) {
-    text = new TextDecoder("latin1").decode(payload);
-  } else if (encoding === 1) {
+  if (encoding === 1) {
     text = decodeUtf16(payload, true);
   } else if (encoding === 2) {
     text = decodeUtf16(payload, false);
+  } else if (encoding === 0) {
+    text = new TextDecoder("latin1").decode(payload);
   } else {
     text = new TextDecoder("utf-8").decode(payload);
   }
-  return text.replace(/\0+$/g, "").split("\0")[0] ?? "";
+  return text.replace(/\0+$/g, "");
 }
 
 function decodeUtf16(payload: Uint8Array, bom: boolean): string {
@@ -169,6 +229,17 @@ function decodeUtf16(payload: Uint8Array, bom: boolean): string {
   return new TextDecoder(little ? "utf-16le" : "utf-16be").decode(aligned);
 }
 
+function readMp3Gapless(itunSmpb: string | null, audio: Uint8Array): Gapless | null {
+  return completeGapless(parseItunSmpb(itunSmpb)) ?? completeGapless(readLameGapless(audio));
+}
+
+function completeGapless(value: Gapless | null): Gapless | null {
+  if (!value || value.sampleCount <= 0n) {
+    return null;
+  }
+  return value;
+}
+
 export function readLameGapless(audio: Uint8Array): Gapless | null {
   const frame = firstMpegFrame(audio);
   if (!frame) {
@@ -187,10 +258,60 @@ export function readLameGapless(audio: Uint8Array): Gapless | null {
     return null;
   }
   const packed = (lame[0x15] << 16) | (lame[0x16] << 8) | lame[0x17];
+  const encoderDelay = (packed >> 12) & 0xfff;
+  const encoderPadding = packed & 0xfff;
+  const sampleCount = lameSampleCount(frame, info, encoderDelay, encoderPadding);
+  if (sampleCount === null) {
+    return null;
+  }
   return {
-    encoderDelay: (packed >> 12) & 0xfff,
-    encoderPadding: packed & 0xfff,
+    encoderDelay,
+    encoderPadding,
+    sampleCount,
   };
+}
+
+function lameSampleCount(
+  frame: Uint8Array,
+  xing: Uint8Array,
+  encoderDelay: number,
+  encoderPadding: number,
+): bigint | null {
+  if (xing.length < 12) {
+    return null;
+  }
+  const flags = readU32(xing, 4);
+  if ((flags & 0x1) === 0) {
+    return null;
+  }
+  const frames = readU32(xing, 8);
+  const samplesPerFrame = mpegSamplesPerFrame(frame);
+  if (!samplesPerFrame || frames === 0) {
+    return null;
+  }
+  const total = frames * samplesPerFrame - encoderDelay - encoderPadding;
+  if (total <= 0) {
+    return null;
+  }
+  return BigInt(total);
+}
+
+function mpegSamplesPerFrame(frame: Uint8Array): number | null {
+  if (frame.length < 2) {
+    return null;
+  }
+  const versionId = ((frame[1] ?? 0) >> 3) & 3;
+  const layerId = ((frame[1] ?? 0) >> 1) & 3;
+  if (layerId === 1) {
+    return versionId === 3 ? 1152 : 576;
+  }
+  if (layerId === 2) {
+    return 1152;
+  }
+  if (layerId === 3) {
+    return 384;
+  }
+  return null;
 }
 
 function firstMpegFrame(audio: Uint8Array): Uint8Array | null {
@@ -260,7 +381,7 @@ function readMp4(bytes: Uint8Array): TrackTags {
     artworkMime: artwork?.mime ?? null,
     artworkBytes: artwork?.bytes ?? null,
     codec,
-    gapless: parseItunSmpb(smpb),
+    gapless: completeGapless(parseItunSmpb(smpb)),
     durationSeconds: mp4DurationSeconds(bytes),
   };
 }
@@ -354,7 +475,7 @@ function parseItunSmpb(value: string | null): Gapless | null {
     return null;
   }
   const parts = value.trim().split(/\s+/);
-  if (parts.length < 3) {
+  if (parts.length < 4) {
     return null;
   }
   const encoderDelay = Number.parseInt(parts[1] ?? "", 16);
@@ -362,7 +483,16 @@ function parseItunSmpb(value: string | null): Gapless | null {
   if (!Number.isFinite(encoderDelay) || !Number.isFinite(encoderPadding)) {
     return null;
   }
-  return { encoderDelay, encoderPadding };
+  let sampleCount: bigint;
+  try {
+    sampleCount = BigInt(`0x${parts[3]}`);
+  } catch {
+    return null;
+  }
+  if (sampleCount <= 0n) {
+    return null;
+  }
+  return { encoderDelay, encoderPadding, sampleCount };
 }
 
 function findAtomPath(bytes: Uint8Array, path: string[]): Uint8Array | null {

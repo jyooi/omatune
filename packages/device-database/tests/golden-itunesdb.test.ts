@@ -68,6 +68,17 @@ describe("S2 golden iTunesDB", () => {
     expect(typeof track.gapless.gaplessAlbumFlag).toBe("number");
     expect(track.devicePath.startsWith(":")).toBe(true);
   });
+
+  test.skipIf(!fixturePresent)(
+    "Fixture gapless fields survive parse and re-serialise",
+    async () => {
+      const bytes = await Bun.file(fixturePath).bytes();
+      const parsed = parseItunesdb(bytes);
+      const first = tracksOf(parsed);
+      const second = tracksOf(parseItunesdb(serializeItunesdb(parsed)));
+      expect(second.map((track) => track.gapless)).toEqual(first.map((track) => track.gapless));
+    },
+  );
 });
 
 function firstMismatch(left: Uint8Array, right: Uint8Array): number {
