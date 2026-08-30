@@ -9,6 +9,7 @@ export function reportLines(input: {
   readonly report: SyncReport | null
   readonly elapsedMs: number
   readonly exitReason: string | null
+  readonly skipped?: ReadonlyArray<{ readonly path: string; readonly reason: string }>
 }) {
   const lines = []
   const elapsed = formatClock(input.elapsedMs / 1000)
@@ -19,8 +20,13 @@ export function reportLines(input: {
     lines.push(
       st`${fg(palette.green)(`+${input.report.added}`)} added  ${fg(palette.red)(`-${input.report.removed}`)} removed  ${input.report.kept} kept  ${input.report.skipped} skipped`,
     )
-    for (const skip of input.report.artworkSkipped) {
+    for (const skip of input.skipped ?? []) {
       lines.push(st`  ${fg(palette.yellow)("!")} ${skip.path} ${dim(skipReasonText(skip.reason))}`)
+    }
+    for (const skip of input.report.artworkSkipped) {
+      lines.push(
+        st`  ${fg(palette.yellow)("!")} ${skip.path} ${dim(`artwork ${skipReasonText(skip.reason)}`)}`,
+      )
     }
   } else {
     lines.push(st`${bold(fg(palette.red)("Sync stopped"))} ${dim(`in ${elapsed}`)}`)
@@ -39,6 +45,7 @@ export function reportStdout(input: {
   readonly report: SyncReport | null
   readonly elapsedMs: number
   readonly exitReason: string | null
+  readonly skipped?: ReadonlyArray<{ readonly path: string; readonly reason: string }>
 }): string {
   const lines: string[] = []
   if (input.report) {
@@ -46,6 +53,9 @@ export function reportStdout(input: {
     lines.push(`Removed: ${input.report.removed}`)
     lines.push(`Kept: ${input.report.kept}`)
     lines.push(`Skipped: ${input.report.skipped}`)
+    for (const skip of input.skipped ?? []) {
+      lines.push(`Skipped ${skip.path}: ${skip.reason}`)
+    }
     for (const skip of input.report.artworkSkipped) {
       lines.push(`Skipped-for-artwork ${skip.path}: ${skip.reason}`)
     }

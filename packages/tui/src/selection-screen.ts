@@ -342,7 +342,7 @@ export function attachSelectionScreen(
     const localPlan = planOf(host.files, selection, host.ledger, host.freeBytes)
     paintTree(treeRows)
     paintRules(rules, treeRows.length)
-    paintMirror(localPlan)
+    paintMirror(livePlan ?? localPlan)
     paintDevice()
     paintStrip(localPlan)
     showDevice(mode === "device")
@@ -534,7 +534,7 @@ export function attachSelectionScreen(
     strip.borderColor = palette.green
     strip.title = " Report "
     const elapsedMs = Math.max(0, syncEndedAt - syncStartedAt)
-    for (const line of reportLines({ report, elapsedMs, exitReason })) {
+    for (const line of reportLines({ report, elapsedMs, exitReason, skipped: livePlan?.skipped ?? [] })) {
       stripBody.add(new TextRenderable(renderer, { content: line }))
     }
     promptLine.content =
@@ -818,7 +818,10 @@ export function attachSelectionScreen(
 
   function finishFromHere(): void {
     const elapsedMs = Math.max(0, (syncEndedAt || clock.now()) - syncStartedAt)
-    const stdout = report || exitReason ? reportStdout({ report, elapsedMs, exitReason }) : ""
+    const stdout =
+      report || exitReason
+        ? reportStdout({ report, elapsedMs, exitReason, skipped: livePlan?.skipped ?? [] })
+        : ""
     finish({ code: finishCode, stdout, stderr: "" })
   }
 

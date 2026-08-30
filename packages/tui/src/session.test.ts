@@ -307,6 +307,8 @@ test("Report screen snapshot at 110x32", async () => {
   expect(frame).toContain("Sync complete")
   expect(frame).toContain("Safe to unplug")
   expect(frame).toContain("+1 added")
+  expect(frame).toContain("Podcasts/2026-08-19 Interview.m4a")
+  expect(frame).toContain("unreadable tags")
   expect(frame).toMatchSnapshot()
   view.handle.dispose()
   view.renderer.destroy()
@@ -338,6 +340,9 @@ test("Enter on the report prints it to stdout after the screen closes", async ()
   expect(view.finished[0]?.stdout).toContain("Added: 1")
   expect(view.finished[0]?.stdout).toContain("Safe to unplug")
   expect(view.finished[0]?.stdout).toContain("Elapsed:")
+  expect(view.finished[0]?.stdout).toContain(
+    "Skipped Podcasts/2026-08-19 Interview.m4a: unreadable_tags",
+  )
   view.renderer.destroy()
 })
 

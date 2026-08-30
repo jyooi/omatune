@@ -57,7 +57,7 @@ export function formatClock(seconds: number): string {
 
 export function progressBar(width: number, done: number, total: number) {
   const inner = Math.max(1, width)
-  const ratio = total <= 0 ? 1 : Math.min(1, Math.max(0, done / total))
+  const ratio = total <= 0 ? 0 : Math.min(1, Math.max(0, done / total))
   const filled = Math.round(inner * ratio)
   const empty = Math.max(0, inner - filled)
   return st`${fg(palette.accent)("█".repeat(filled))}${fg(palette.muted)("░".repeat(empty))}`
