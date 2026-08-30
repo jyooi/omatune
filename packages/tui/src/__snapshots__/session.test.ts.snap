@@ -1,0 +1,229 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`Sync Plan screen snapshot at 110x32 1`] = `
+" omatune ~/Music -> Classic 120GB 000A27001395D5A3 Verified                           24.3 GB free · 1 Tracks 
+┌─ Library (tick = on Device) ────────────────────────┐┌─ Device after Sync ─────────────────────────────────┐
+│▶[ ] Boards of Canada                                ││Radiohead                                            │
+│     [ ] Tomorrow's Harvest (1)                      ││  + Kid A 1                                          │
+│ [~] Radiohead                                       ││  - Pablo Honey removed                              │
+│     [x] Kid A (1)                                   ││                                                     │
+│     [ ] Pablo Honey (1)                             ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│Rules                                                ││                                                     │
+└─────────────────────────────────────────────────────┘└─────────────────────────────────────────────────────┘
+┌─ Sync Plan ────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Add 1 6.2 MB                                                                                               │
+│   + Radiohead/Kid A/01 Everything In Its Right Place.mp3 6.2 MB                                            │
+│ Remove 1                                                                                                   │
+│   - Radiohead/Pablo Honey/01 You.mp3 5.1 MB                                                                │
+│ Keep 0                                                                                                     │
+│ Skipped 1                                                                                                  │
+│   ! Podcasts/2026-08-19 Interview.m4a unreadable tags                                                      │
+│ bytes 6.2 MB  free after 24.3 GB                                                                           │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│ Sync now? [y/N]  Esc back                                                                                  │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+"
+`;
+
+exports[`Sync Plan screen snapshot at 80x24 1`] = `
+" omatune ~/Music -> Classic 120GB 000A27001395D5A3 Verified  24.3 GB · 1 Tracks 
+┌─ Library (tick = on Device) ─────────────────────────────────────────────────┐
+│▶[ ] Boards of Canada                                                        ▀│
+│     [ ] Tomorrow's Harvest (1)                                               │
+│Rules                                                                         │
+└──────────────────────────────────────────────────────────────────────────────┘
+┌─ Device after Sync ──────────────────────────────────────────────────────────┐
+│Radiohead                                                                    █│
+│  + Kid A 1                                                                   │
+└──────────────────────────────────────────────────────────────────────────────┘
+┌─ Sync Plan ──────────────────────────────────────────────────────────────────┐
+│ Add 1 6.2 MB                                                                 │
+│   + Radiohead/Kid A/01 Everything In Its Right Place.mp3 6.2 MB              │
+│ Remove 1                                                                     │
+│   - Radiohead/Pablo Honey/01 You.mp3 5.1 MB                                  │
+│ Keep 0                                                                       │
+│ Skipped 1                                                                    │
+│   ! Podcasts/2026-08-19 Interview.m4a unreadable tags                        │
+│ bytes 6.2 MB  free after 24.3 GB                                             │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│ Sync now? [y/N]  Esc back                                                    │
+└──────────────────────────────────────────────────────────────────────────────┘
+"
+`;
+
+exports[`confirm y starts the Sync screen 1`] = `
+" omatune ~/Music -> Classic 120GB 000A27001395D5A3 Verified                           24.3 GB free · 1 Tracks 
+┌─ Library (tick = on Device) ────────────────────────┐┌─ Device after Sync ─────────────────────────────────┐
+│▶[ ] Boards of Canada                                ││Radiohead                                            │
+│     [ ] Tomorrow's Harvest (1)                      ││  + Kid A 1                                          │
+│ [~] Radiohead                                       ││  - Pablo Honey removed                              │
+│     [x] Kid A (1)                                   ││                                                     │
+│     [ ] Pablo Honey (1)                             ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│Rules                                                ││                                                     │
+└─────────────────────────────────────────────────────┘└─────────────────────────────────────────────────────┘
+┌─ Sync ─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Phase: copy                                                                                                │
+│ ███████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░     │
+│ 3.1 MB of 6.2 MB  0 of 1 files  0.0 MB/s  ETA --                                                           │
+│ current Radiohead/Kid A/01 Everything In Its Right Place.mp3                                               │
+│ Ctrl-C leaves the Device ready to resume                                                                   │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+"
+`;
+
+exports[`progress mid-copy snapshot at 80x24 1`] = `
+" omatune ~/Music -> Classic 120GB 000A27001395D5A3 Verified  24.3 GB · 1 Tracks 
+┌─ Library (tick = on Device) ─────────────────────────────────────────────────┐
+│▶[ ] Boards of Canada                                                         │
+│     [ ] Tomorrow's Harvest (1)                                               │
+│ [~] Radiohead                                                                │
+│     [x] Kid A (1)                                                            │
+│     [ ] Pablo Honey (1)                                                      │
+│Rules                                                                         │
+└──────────────────────────────────────────────────────────────────────────────┘
+┌─ Device after Sync ──────────────────────────────────────────────────────────┐
+│Radiohead                                                                     │
+│  + Kid A 1                                                                   │
+│  - Pablo Honey removed                                                       │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+┌─ Sync ───────────────────────────────────────────────────────────────────────┐
+│ Phase: copy                                                                  │
+│ ████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░     │
+│ 3.1 MB of 6.2 MB  0 of 1 files  0.0 MB/s  ETA --                             │
+│ current Radiohead/Kid A/01 Everything In Its Right Place.mp3                 │
+│ Ctrl-C leaves the Device ready to resume                                     │
+└──────────────────────────────────────────────────────────────────────────────┘
+"
+`;
+
+exports[`Report screen snapshot at 110x32 1`] = `
+" omatune ~/Music -> Classic 120GB 000A27001395D5A3 Verified                           24.3 GB free · 1 Tracks 
+┌─ Library (tick = on Device) ────────────────────────┐┌─ Device after Sync ─────────────────────────────────┐
+│▶[ ] Boards of Canada                                ││Radiohead                                            │
+│     [ ] Tomorrow's Harvest (1)                      ││  + Kid A 1                                          │
+│ [~] Radiohead                                       ││  - Pablo Honey removed                              │
+│     [x] Kid A (1)                                   ││                                                     │
+│     [ ] Pablo Honey (1)                             ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│                                                     ││                                                     │
+│Rules                                                ││                                                     │
+└─────────────────────────────────────────────────────┘└─────────────────────────────────────────────────────┘
+┌─ Report ───────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Sync complete in 0:05                                                                                      │
+│ +1 added  -1 removed  0 kept  1 skipped                                                                    │
+│ Safe to unplug                                                                                             │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│ Enter exit  q quit                                                                                         │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+"
+`;
+
+exports[`Report screen snapshot at 80x24 1`] = `
+" omatune ~/Music -> Classic 120GB 000A27001395D5A3 Verified  24.3 GB · 1 Tracks 
+┌─ Library (tick = on Device) ─────────────────────────────────────────────────┐
+│▶[ ] Boards of Canada                                                        ▀│
+│     [ ] Tomorrow's Harvest (1)                                               │
+│Rules                                                                         │
+└──────────────────────────────────────────────────────────────────────────────┘
+┌─ Device after Sync ──────────────────────────────────────────────────────────┐
+│Radiohead                                                                    █│
+│  + Kid A 1                                                                   │
+└──────────────────────────────────────────────────────────────────────────────┘
+┌─ Report ─────────────────────────────────────────────────────────────────────┐
+│ Sync complete in 0:05                                                        │
+│ +1 added  -1 removed  0 kept  1 skipped                                      │
+│ Safe to unplug                                                               │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│ Enter exit  q quit                                                           │
+└──────────────────────────────────────────────────────────────────────────────┘
+"
+`;
+
+exports[`Device screen is one key away and shows devices facts 1`] = `
+" omatune ~/Music -> Classic 120GB 000A27001395D5A3 Verified                           24.3 GB free · 1 Tracks 
+┌─ Device ───────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SERIAL  000A27001395D5A3                                                                                   │
+│ FAMILY  iPod classic 120 GB (2008)                                                                         │
+│ TIER    Verified                                                                                           │
+│ FORMAT  FAT32                                                                                              │
+│ FREE    24.3 GB                                                                                            │
+│ OWNER   omatune                                                                                            │
+│ MOUNT   /run/media/david/IPOD                                                                              │
+│ NOTES   -                                                                                                  │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ +1 -1  6.2 MB  fits                                                                                        │
+│ Esc back  i Device                                                                                         │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+"
+`;

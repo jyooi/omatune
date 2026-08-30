@@ -41,6 +41,10 @@ export async function runMain(
     return runTui({
       config: parsed.config,
       device: parsed.device,
+      yes: parsed.yes,
+      noEject: parsed.noEject,
+      strict: parsed.strict,
+      forceModel: parsed.forceModel,
       layer: platformLayer,
       env,
     })

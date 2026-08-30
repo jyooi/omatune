@@ -18,6 +18,11 @@ bun run omatune
 ```
 
 Set `--device` when two or more Devices connect.
+Press Enter to review the Sync Plan in the bottom strip.
+Confirm with `y`, or type `wipe` for a wipe.
+The Sync screen shows one progress bar.
+The report prints to stdout after the screen closes.
+Press `i` to open the Device screen.
 
 List attached Devices:
 
@@ -84,6 +89,6 @@ Build every package with `bun run build`.
 
 `packages/cli` holds the command line entry.
 
-`packages/tui` holds the Selection screen.
+`packages/tui` holds the Selection screen, Sync Plan, Sync progress, report, and Device screen.
 
 `Platform` is the only hardware seam.

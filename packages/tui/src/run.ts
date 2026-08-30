@@ -6,14 +6,18 @@ import {
   loadLedger,
   loadSelection,
   resolveConfigDir,
+  resolveDataDir,
   scanLibrary,
+  Sync,
+  SyncLive,
   writeSelection,
   type AppSelection,
   type DeviceReport,
+  type SyncRequest,
 } from "@omatune/core"
 import { createCliRenderer, SystemClock, type CliRenderer, type CliRendererConfig } from "@opentui/core"
 import type { Platform } from "@omatune/platform"
-import { Effect, type Layer } from "effect"
+import { Effect, Stream, type Layer } from "effect"
 import { palette } from "./palette.ts"
 import { attachSelectionScreen } from "./selection-screen.ts"
 
@@ -26,7 +30,12 @@ export type TuiResult = {
 export type RunTuiInput = {
   readonly config?: string | null
   readonly device?: string | null
+  readonly yes?: boolean
+  readonly noEject?: boolean
+  readonly strict?: boolean
+  readonly forceModel?: string | null
   readonly layer: Layer.Layer<Platform>
+  readonly syncLayer?: Layer.Layer<Sync>
   readonly env?: NodeJS.ProcessEnv
   readonly createRenderer?: (config: CliRendererConfig) => Promise<CliRenderer>
 }
@@ -68,10 +77,15 @@ export async function runTui(input: RunTuiInput): Promise<TuiResult> {
     return refused(`${ledgerResult.issue.file}:${ledgerResult.issue.line}: ${ledgerResult.issue.reason}`)
   }
   const files = await scanLibrary(loaded.config.library)
+  const dataDir = resolveDataDir({
+    xdgDataHome: env.XDG_DATA_HOME,
+    home: env.HOME,
+  })
   const createRenderer = input.createRenderer ?? createCliRenderer
   const clock = new SystemClock()
   const program = Effect.scoped(
     Effect.gen(function* () {
+      const sync = yield* Sync
       const renderer = yield* Effect.acquireRelease(
         Effect.promise(() =>
           createRenderer({
@@ -99,15 +113,36 @@ export async function runTui(input: RunTuiInput): Promise<TuiResult> {
             selection: selectionResult.value,
             ledger: ledgerResult.value,
             writeSelection: (next: AppSelection) => writeSelection(dir, report.serial, next),
+            family: report.family,
+            volumeFormat: report.volumeFormat,
+            ownerState: report.ownerState,
+            mountPoint: report.mountPoint,
+            notes: report.notes,
+            configDir: dir,
+            dataDir,
+            yes: input.yes === true,
+            noEject: input.noEject === true,
+            strict: input.strict === true,
+            forceModel: input.forceModel ?? null,
           },
           {
             clock,
-            onQuit: (code) => resume(Effect.succeed({ code, stdout: "", stderr: "" })),
+            runSync: async (request: SyncRequest, onEvent) => {
+              const result = await Effect.runPromise(
+                Stream.runForEach(sync.run(request).pipe(Stream.provideLayer(input.layer)), (event) =>
+                  Effect.sync(() => onEvent(event)),
+                ).pipe(Effect.either),
+              )
+              if (result._tag === "Left") {
+                throw result.left
+              }
+            },
+            onFinish: (result) => resume(Effect.succeed(result)),
           },
         )
       })
     }),
-  )
+  ).pipe(Effect.provide(input.syncLayer ?? SyncLive))
   try {
     return await Effect.runPromise(program)
   } catch (cause) {
