@@ -48,6 +48,14 @@ export function writeU32(bytes: Uint8Array, offset: number, value: number): void
   view.setUint32(0, value, true);
 }
 
+export function writeU64(bytes: Uint8Array, offset: number, value: bigint): void {
+  if (offset + 8 > bytes.byteLength) {
+    throw new ItunesdbParseError(`need 8 bytes at ${offset}`, offset);
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset + offset, 8);
+  view.setBigUint64(0, value, true);
+}
+
 export function readFourCc(bytes: Uint8Array, offset: number): string {
   if (offset + 4 > bytes.byteLength) {
     throw new ItunesdbParseError(`need 4 bytes at ${offset}`, offset);
