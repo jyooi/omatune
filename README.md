@@ -152,6 +152,8 @@ A Sync copies failed Play Counts files to `read-back-failed/` in that directory.
 
 `packages/core` holds Device reports, exit codes, config files, the scanner, Rule evaluation, the Ledger reader, the planner, Play Data, and Sync.
 
+`packages/transcode` converts FLAC Tracks to ALAC during a Sync.
+
 `packages/cli` holds the command line entry.
 
 `packages/tui` holds the Selection screen, Sync Plan, Sync progress, report, and Device screen.
