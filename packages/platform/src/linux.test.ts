@@ -343,7 +343,7 @@ test("refuses when SysInfoExtended disagrees with the USB serial", async () => {
   })
 })
 
-test("resolves iPod_Control case-insensitively and requires iTunes and Device", async () => {
+test("resolves iPod_Control case-insensitively and requires Device", async () => {
   const volume = await makeVolume("IPOD_CONTROL", {
     sysInfoExtended: sieXml(SERIAL),
   })
@@ -352,12 +352,22 @@ test("resolves iPod_Control case-insensitively and requires iTunes and Device", 
   expect(devices[0]?.serial).toBe(SERIAL)
 })
 
-test("refuses when iTunes or Device is missing under iPod_Control", async () => {
+test("refuses when Device is missing under iPod_Control", async () => {
   const volume = await makeVolume("iPod_Control", { device: false, itunes: true })
   const transport = transportFor(volume)
   await expect(list(transport)).rejects.toMatchObject({
-    message: "The Device is missing iPod_Control/iTunes or iPod_Control/Device.",
+    message: "The Device is missing iPod_Control/Device.",
   })
+})
+
+test("lists a Device without iPod_Control/iTunes, as after a wipe or restore", async () => {
+  const volume = await makeVolume("iPod_Control", {
+    itunes: false,
+    sysInfoExtended: sieXml(SERIAL),
+  })
+  const transport = transportFor(volume)
+  const devices = await list(transport)
+  expect(devices[0]?.serial).toBe(SERIAL)
 })
 
 test("unmounts and powers off after a Sync", async () => {
