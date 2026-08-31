@@ -34,6 +34,7 @@ items:
     step: Play one Track to the end, rate another 4 stars, skip a third after 2 s, eject, run sync again
     pass: Plan lists Play Counts pending. After Sync, play-data.json holds play count 1, rating 4, skip count 1
     not_applicable_for: []
+    notes: Skip-count verification is pending firmware-semantics research tracked in HUF-285
   - id: DC-08
     step: Remove one Album from the Selection, add one, Sync
     pass: Device shows the new Album, no trace of the removed one

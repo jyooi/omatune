@@ -122,7 +122,7 @@ body:
     id: dc_07
     attributes:
       label: "DC-07: Play one Track to the end, rate another 4 stars, skip a third after 2 s, eject, run sync again"
-      description: "Pass: Plan lists Play Counts pending. After Sync, play-data.json holds play count 1, rating 4, skip count 1."
+      description: "Pass: Plan lists Play Counts pending. After Sync, play-data.json holds play count 1, rating 4, skip count 1. Skip-count verification is pending firmware-semantics research tracked in HUF-285."
       options:
         - pass
         - fail
