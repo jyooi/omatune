@@ -52,7 +52,7 @@ The v1 spec is https://linear.app/huffman/document/omatune-v1-spec-fb07aaa33fe0.
 <!-- render:support-table:start -->
 | Family | Apple models | libgpod key | Tier | Verified by | Notes |
 |---|---|---|---|---|---|
-| iPod classic 120 GB (2008) | MB562, MB565 | CLASSIC_2 | Verified | Reference Device, firmware 2.0.1 PC | hash58, Play Counts 0x1c, artwork 1055/1060/1061 |
+| iPod classic 120 GB (2008) | MB562, MB565 | CLASSIC_2 | Verified | Reference Device, firmware 2.0.1 PC, 2026-08-31, HUF-275 | hash58, Play Counts 0x1c, artwork 1055/1060/1061 |
 | iPod classic 80/160 GB (2007) | MB029, MB147, MB145, MB150 | CLASSIC_1 | Expected | - | hash58 |
 | iPod classic 160 GB (Late 2009) | MC293, MC297 | CLASSIC_3 | Expected | - | hash58 |
 | iPod nano 4G | MB598 to MB918 | NANO_4 | Expected | - | hash58, Cover Flow |
