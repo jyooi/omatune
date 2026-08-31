@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test"
 import {
+  SELECTION_EMPTY,
   SyncError,
   type Ledger,
   type ScannedFile,
@@ -9,6 +10,7 @@ import {
   type TrackTags,
 } from "@omatune/core"
 import { ManualClock, createTestRenderer } from "@opentui/core/testing"
+import { EJECTED_LINE, STILL_MOUNTED_LINE } from "./report-text.ts"
 import { attachSelectionScreen, type TuiFinish } from "./selection-screen.ts"
 
 function tags(input: {
@@ -162,6 +164,8 @@ async function mount(
     after?: ReadonlyArray<SyncEvent>
     yes?: boolean
     holdConfirm?: Promise<void>
+    fail?: SyncError
+    eject?: () => Promise<void>
   } = {},
 ) {
   const clock = new ManualClock()
@@ -192,14 +196,19 @@ async function mount(
       mountPoint: "/run/media/david/IPOD",
       notes: [],
       yes: input.yes,
+      eject: input.eject,
     },
     {
       clock,
-      runSync: scriptedRun(
-        input.plan ?? makePlan(),
-        input.after ?? [midCopy, doneReport],
-        input.holdConfirm,
-      ),
+      runSync: input.fail
+        ? async () => {
+            throw input.fail
+          }
+        : scriptedRun(
+            input.plan ?? makePlan(),
+            input.after ?? [midCopy, doneReport],
+            input.holdConfirm,
+          ),
       onFinish: (result) => {
         finished.push(result)
       },
@@ -361,7 +370,7 @@ test("Report screen snapshot at 110x32", async () => {
   await settle(view)
   const frame = view.captureCharFrame()
   expect(frame).toContain("Sync complete")
-  expect(frame).toContain("Safe to unplug")
+  expect(frame).toContain(EJECTED_LINE)
   expect(frame).toContain("+1 added")
   expect(frame).toContain("Podcasts/2026-08-19 Interview.m4a")
   expect(frame).toContain("unreadable tags")
@@ -394,7 +403,7 @@ test("Enter on the report prints it to stdout after the screen closes", async ()
   expect(view.finished).toHaveLength(1)
   expect(view.finished[0]?.code).toBe(0)
   expect(view.finished[0]?.stdout).toContain("Added: 1")
-  expect(view.finished[0]?.stdout).toContain("Safe to unplug")
+  expect(view.finished[0]?.stdout).toContain(EJECTED_LINE)
   expect(view.finished[0]?.stdout).toContain("Elapsed:")
   expect(view.finished[0]?.stdout).toContain(
     "Skipped Podcasts/2026-08-19 Interview.m4a: unreadable_tags",
@@ -423,6 +432,85 @@ test("Device screen is one key away and shows devices facts", async () => {
   view.mockInput.pressEscape()
   await settle(view)
   expect(view.captureCharFrame()).toContain("Enter plan")
+  view.handle.dispose()
+  view.renderer.destroy()
+})
+
+test("report after a refusal shows still mounted and ejects on e", async () => {
+  const ejectCalls: string[] = []
+  const view = await mount(110, 32, {
+    fail: new SyncError({ message: SELECTION_EMPTY, code: 1 }),
+    eject: async () => {
+      ejectCalls.push("eject")
+    },
+  })
+  view.mockInput.pressEnter()
+  await settle(view)
+  const stopped = view.captureCharFrame()
+  expect(stopped).toContain("Sync stopped")
+  expect(stopped).toContain(SELECTION_EMPTY)
+  expect(stopped).toContain(STILL_MOUNTED_LINE)
+  expect(stopped).toContain("e eject")
+  view.mockInput.pressKey("e")
+  await settle(view)
+  expect(ejectCalls).toEqual(["eject"])
+  const ejected = view.captureCharFrame()
+  expect(ejected).toContain(EJECTED_LINE)
+  expect(ejected).not.toContain(STILL_MOUNTED_LINE)
+  view.handle.dispose()
+  view.renderer.destroy()
+})
+
+test("report after Sync without eject stays mounted until e", async () => {
+  const ejectCalls: string[] = []
+  const view = await mount(110, 32, {
+    after: [midCopy, { ...doneReport, ejected: false }],
+    eject: async () => {
+      ejectCalls.push("eject")
+    },
+  })
+  view.mockInput.pressEnter()
+  await settle(view)
+  view.mockInput.pressKey("y")
+  view.clock.advance(5000)
+  await settle(view)
+  expect(view.captureCharFrame()).toContain(STILL_MOUNTED_LINE)
+  expect(view.captureCharFrame()).toContain("e eject")
+  view.mockInput.pressKey("e")
+  await settle(view)
+  expect(ejectCalls).toEqual(["eject"])
+  expect(view.captureCharFrame()).toContain(EJECTED_LINE)
+  view.mockInput.pressEnter()
+  await settle(view)
+  expect(view.finished[0]?.stdout).toContain(EJECTED_LINE)
+  view.renderer.destroy()
+})
+
+test("eject failure shows the cause and lets the user retry", async () => {
+  let attempts = 0
+  const view = await mount(110, 32, {
+    fail: new SyncError({ message: SELECTION_EMPTY, code: 1 }),
+    eject: async () => {
+      attempts += 1
+      if (attempts === 1) {
+        throw new Error("Unmount denied.")
+      }
+    },
+  })
+  view.mockInput.pressEnter()
+  await settle(view)
+  view.mockInput.pressKey("e")
+  await settle(view)
+  const failed = view.captureCharFrame()
+  expect(failed).toContain(STILL_MOUNTED_LINE)
+  expect(failed).toContain("Eject failed: Unmount denied.")
+  expect(failed).toContain("press e to try again")
+  view.mockInput.pressKey("e")
+  await settle(view)
+  expect(attempts).toBe(2)
+  const ejected = view.captureCharFrame()
+  expect(ejected).toContain(EJECTED_LINE)
+  expect(ejected).not.toContain("Eject failed")
   view.handle.dispose()
   view.renderer.destroy()
 })

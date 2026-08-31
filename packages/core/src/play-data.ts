@@ -4,6 +4,7 @@ import { dirname, join } from "node:path"
 import { serializePlayCounts, type PlayCountsEntry } from "@omatune/device-database"
 import { Either, ParseResult, Schema } from "effect"
 import type { Ledger } from "./ledger.ts"
+import { malformedJson, unsupportedVersion } from "./refusals.ts"
 
 export type HostPlayData = {
   readonly playCount: number
@@ -181,7 +182,7 @@ export function parsePlayDataText(file: string, text: string): Outcome<PlayDataF
   try {
     value = JSON.parse(text) as unknown
   } catch {
-    return { ok: false, issue: { file, line: 1, reason: "Malformed Play Data JSON." } }
+    return { ok: false, issue: { file, line: 1, reason: malformedJson("Play Data") } }
   }
   const decoded = Schema.decodeUnknownEither(FileSchema, {
     onExcessProperty: "error",
@@ -199,7 +200,7 @@ export function parsePlayDataText(file: string, text: string): Outcome<PlayDataF
   if (decoded.right.version !== 1) {
     return {
       ok: false,
-      issue: { file, line: 1, reason: `Unsupported version ${decoded.right.version}.` },
+      issue: { file, line: 1, reason: unsupportedVersion("Play Data", decoded.right.version) },
     }
   }
   return {

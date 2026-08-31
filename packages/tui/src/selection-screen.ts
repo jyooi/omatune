@@ -81,6 +81,7 @@ export type SelectionHost = {
   readonly noEject?: boolean
   readonly strict?: boolean
   readonly forceModel?: string | null
+  readonly eject?: () => Promise<void>
 }
 
 export type SelectionHandle = {
@@ -127,6 +128,9 @@ export function attachSelectionScreen(
   let progress: SyncProgress | null = null
   let rate: CopyRate | null = null
   let report: SyncReport | null = null
+  let deviceEjected = false
+  let ejecting = false
+  let ejectError: string | null = null
   let exitReason: string | null = null
   let syncStartedAt = 0
   let syncEndedAt = 0
@@ -535,11 +539,22 @@ export function attachSelectionScreen(
     strip.borderColor = palette.green
     strip.title = " Report "
     const elapsedMs = Math.max(0, syncEndedAt - syncStartedAt)
-    for (const line of reportLines({ report, elapsedMs, exitReason, skipped: livePlan?.skipped ?? [] })) {
+    for (const line of reportLines({
+      report,
+      elapsedMs,
+      exitReason,
+      ejected: deviceEjected,
+      ejectError,
+      skipped: livePlan?.skipped ?? [],
+    })) {
       stripBody.add(new TextRenderable(renderer, { content: line }))
     }
     promptLine.content =
-      mode === "device" ? deviceKeys() : st`${pair("Enter", "exit")}  ${pair("q", "quit")}`
+      mode === "device"
+        ? deviceKeys()
+        : deviceEjected
+          ? st`${pair("Enter", "exit")}  ${pair("q", "quit")}`
+          : st`${pair("Enter", "exit")}  ${pair("e", "eject")}  ${pair("q", "quit")}`
   }
 
   function confirmPrompt() {
@@ -659,11 +674,34 @@ export function attachSelectionScreen(
     }
     if (event.type === "report") {
       report = event
+      deviceEjected = event.ejected
+      ejectError = null
       syncEndedAt = clock.now()
       mode = "report"
       finishCode = 0
       exitReason = null
       requestDraw()
+    }
+  }
+
+  async function ejectNow(): Promise<void> {
+    if (deviceEjected || ejecting || !host.eject) {
+      return
+    }
+    ejecting = true
+    try {
+      await host.eject()
+      deviceEjected = true
+      ejectError = null
+      if (report) {
+        report = { ...report, ejected: true }
+      }
+      requestDraw()
+    } catch (cause) {
+      ejectError = toSyncError(cause).message
+      requestDraw()
+    } finally {
+      ejecting = false
     }
   }
 
@@ -677,6 +715,8 @@ export function attachSelectionScreen(
     progress = null
     rate = null
     report = null
+    deviceEjected = false
+    ejectError = null
     exitReason = null
     finishCode = 0
     syncStartedAt = clock.now()
@@ -710,6 +750,7 @@ export function attachSelectionScreen(
       }
       exitReason = error.message
       finishCode = error.code
+      deviceEjected = false
       mode = "report"
       requestDraw()
       return
@@ -740,6 +781,10 @@ export function attachSelectionScreen(
     if (mode === "report") {
       if (key.name === "i") {
         openDevice()
+        return
+      }
+      if (key.name === "e") {
+        void ejectNow()
         return
       }
       if (key.name === "return" || key.name === "q" || key.name === "escape") {
@@ -841,7 +886,14 @@ export function attachSelectionScreen(
     const elapsedMs = Math.max(0, (syncEndedAt || clock.now()) - syncStartedAt)
     const stdout =
       report || exitReason
-        ? reportStdout({ report, elapsedMs, exitReason, skipped: livePlan?.skipped ?? [] })
+        ? reportStdout({
+            report,
+            elapsedMs,
+            exitReason,
+            ejected: deviceEjected,
+            ejectError,
+            skipped: livePlan?.skipped ?? [],
+          })
         : ""
     finish({ code: finishCode, stdout, stderr: "" })
   }

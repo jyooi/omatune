@@ -1,9 +1,10 @@
 import { expect, test } from "bun:test"
-import { mkdtemp } from "node:fs/promises"
+import { mkdtemp, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
   emptyPlayData,
+  loadPlayData,
   mergePlayDataEntry,
   playDataNeedsWriteback,
   playDataPath,
@@ -118,6 +119,34 @@ test("writePlayDataAtomic replaces the host file", async () => {
   const text = await Bun.file(playDataPath(dir)).text()
   expect(text).toBe(serializePlayData({ version: 1, tracks: { ab: host }, mergedPlayCounts: {} }))
   expect(JSON.parse(text).tracks.ab.playCount).toBe(4)
+})
+
+test("Malformed Play Data JSON names the cause and the fix", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "omatune-play-data-malformed-"))
+  await writeFile(playDataPath(dir), "{not json")
+  const result = await loadPlayData(dir)
+  expect(result.ok).toBe(false)
+  if (!result.ok) {
+    expect(result.issue.line).toBe(1)
+    expect(result.issue.reason).toBe(
+      "Malformed Play Data JSON. Delete the file and Sync again to rebuild it.",
+    )
+  }
+})
+
+test("Unsupported Play Data version names the cause and the fix", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "omatune-play-data-version-"))
+  await writeFile(
+    playDataPath(dir),
+    JSON.stringify({ version: 2, tracks: {}, mergedPlayCounts: {} }),
+  )
+  const result = await loadPlayData(dir)
+  expect(result.ok).toBe(false)
+  if (!result.ok) {
+    expect(result.issue.reason).toBe(
+      "Unsupported Play Data version 2. Delete the file and Sync again to rebuild it.",
+    )
+  }
 })
 
 test("emptyPlayData has no Tracks", () => {

@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test"
-import { parseSelectionText, serializeSelection } from "./config.ts"
+import {
+  formatConfigIssue,
+  parseConfigText,
+  parseSelectionText,
+  serializeSelection,
+  starterConfigText,
+} from "./config.ts"
+import { LIBRARY_NOT_SET, starterConfigRefusal } from "./refusals.ts"
 
 test("write-back sorts Rules and drops comments", () => {
   const parsed = parseSelectionText(
@@ -43,4 +50,16 @@ path = "b/track"
 [[exclude]]
 album_artist = "Zed"
 `)
+})
+
+test("starter config without library names the cause and the fix", () => {
+  const parsed = parseConfigText("config.toml", starterConfigText())
+  expect(parsed.ok).toBe(false)
+  if (parsed.ok) {
+    return
+  }
+  expect(formatConfigIssue(parsed.issue)).toBe(`config.toml: ${LIBRARY_NOT_SET}`)
+  expect(starterConfigRefusal("/tmp/config.toml")).toBe(
+    `Wrote starter config /tmp/config.toml. ${LIBRARY_NOT_SET}`,
+  )
 })

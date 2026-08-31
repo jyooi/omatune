@@ -3,6 +3,7 @@ import {
   resolveConfigDir,
   resolveDataDir,
   runSync,
+  needsDeviceFlag,
   type SyncEvent,
   type SyncPlan,
 } from "@omatune/core"
@@ -22,7 +23,7 @@ export async function runSyncCommand(
   io: RunIo = {},
 ): Promise<RunResult> {
   if (!flags.device) {
-    return refused("sync needs --device.")
+    return refused(needsDeviceFlag("sync"))
   }
   const configDir = resolveConfigDir({
     xdgConfigHome: env.XDG_CONFIG_HOME,

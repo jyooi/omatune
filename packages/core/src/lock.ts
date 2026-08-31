@@ -1,5 +1,6 @@
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
+import { deviceLocked } from "./refusals.ts"
 
 export function syncLockPath(configDir: string, serial: string): string {
   return join(configDir, "devices", serial.toLowerCase(), "sync.lock")
@@ -41,7 +42,7 @@ export async function acquireSerialLock(configDir: string, serial: string): Prom
       }
       const pid = await readLockPid(path)
       if (pid !== null && processIsAlive(pid)) {
-        throw new Error(`Device ${serial} is locked.`)
+        throw new Error(deviceLocked(serial))
       }
       try {
         await unlink(path)
@@ -53,7 +54,7 @@ export async function acquireSerialLock(configDir: string, serial: string): Prom
       }
     }
   }
-  throw new Error(`Device ${serial} is locked.`)
+  throw new Error(deviceLocked(serial))
 }
 
 export async function releaseSerialLock(path: string): Promise<void> {

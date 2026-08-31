@@ -151,7 +151,7 @@ exports[`Report screen snapshot at 110x32 1`] = `
 │ Sync complete in 0:05                                                                                      │
 │ +1 added  -1 removed  0 kept  1 skipped                                                                    │
 │   ! Podcasts/2026-08-19 Interview.m4a unreadable tags                                                      │
-│ Safe to unplug                                                                                             │
+│ Ejected - safe to unplug.                                                                                  │
 │                                                                                                            │
 │                                                                                                            │
 │                                                                                                            │
@@ -179,7 +179,7 @@ exports[`Report screen snapshot at 80x24 1`] = `
 │ Sync complete in 0:05                                                        │
 │ +1 added  -1 removed  0 kept  1 skipped                                      │
 │   ! Podcasts/2026-08-19 Interview.m4a unreadable tags                        │
-│ Safe to unplug                                                               │
+│ Ejected - safe to unplug.                                                    │
 │                                                                              │
 │                                                                              │
 │                                                                              │

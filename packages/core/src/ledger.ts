@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto"
 import { mkdir, rename } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { Either, ParseResult, Schema } from "effect"
+import { malformedJson, unsupportedVersion } from "./refusals.ts"
 
 export type LedgerEntry = {
   readonly libraryPath: string
@@ -77,7 +78,7 @@ export function parseLedgerText(file: string, text: string): Outcome<Ledger> {
   try {
     value = JSON.parse(text) as unknown
   } catch {
-    return { ok: false, issue: { file, line: 1, reason: "Malformed Ledger JSON." } }
+    return { ok: false, issue: { file, line: 1, reason: malformedJson("Ledger") } }
   }
   const decoded = Schema.decodeUnknownEither(LedgerSchema, {
     onExcessProperty: "error",
@@ -95,7 +96,7 @@ export function parseLedgerText(file: string, text: string): Outcome<Ledger> {
   if (decoded.right.version !== 1) {
     return {
       ok: false,
-      issue: { file, line: 1, reason: `Unsupported version ${decoded.right.version}.` },
+      issue: { file, line: 1, reason: unsupportedVersion("Ledger", decoded.right.version) },
     }
   }
   return {

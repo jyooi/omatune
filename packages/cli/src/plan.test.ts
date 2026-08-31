@@ -236,7 +236,7 @@ test("empty Selection exits 1", async () => {
   await classicDevice(fake)
   const result = await plan(dir, fake)
   expect(result.code).toBe(1)
-  expect(result.stderr).toContain("Selection is empty")
+  expect(result.stderr).toContain("Selection is empty - tick Tracks with Space first.")
 })
 
 test("Selection that does not fit exits 1", async () => {
@@ -452,6 +452,59 @@ path = "tone-suite"
   expect(result.json?.keep.map((track) => track.path)).toEqual([keepPath])
   expect(result.json?.remove.map((track) => track.path)).toEqual([removePath])
   expect(result.json?.add).toHaveLength(4)
+})
+
+test("Malformed Ledger JSON names the cause and the fix", async () => {
+  const dir = await makeDir("omatune-plan-ledger-malformed-")
+  const fake = await makeDir("omatune-plan-fake-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "tone-suite"
+`,
+  )
+  await classicDevice(fake)
+  await mkdir(join(dir, "devices", SERIAL), { recursive: true })
+  await writeFile(join(dir, "devices", SERIAL, "ledger.json"), "{not json")
+  const result = await plan(dir, fake)
+  expect(result.code).toBe(1)
+  expect(result.stderr).toContain("ledger.json:1:")
+  expect(result.stderr).toContain("Malformed Ledger JSON. Delete the file and Sync again to rebuild it.")
+})
+
+test("Unsupported Ledger version names the cause and the fix", async () => {
+  const dir = await makeDir("omatune-plan-ledger-version-")
+  const fake = await makeDir("omatune-plan-fake-")
+  await writeConfig(dir, LIBRARY)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "tone-suite"
+`,
+  )
+  await classicDevice(fake)
+  await mkdir(join(dir, "devices", SERIAL), { recursive: true })
+  await writeFile(
+    join(dir, "devices", SERIAL, "ledger.json"),
+    `${JSON.stringify({
+      version: 2,
+      serial: SERIAL,
+      libraryRoot: LIBRARY,
+      lastCommitTime: 1,
+      tracks: [],
+    })}\n`,
+  )
+  const result = await plan(dir, fake)
+  expect(result.code).toBe(1)
+  expect(result.stderr).toContain("ledger.json:1:")
+  expect(result.stderr).toContain(
+    "Unsupported Ledger version 2. Delete the file and Sync again to rebuild it.",
+  )
 })
 
 test("plan does not change the Device", async () => {
