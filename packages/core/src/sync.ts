@@ -201,7 +201,7 @@ async function executeLocked(
 ): Promise<void> {
   const prepared = await prepareSync(request, serial, platform)
   await emit({ type: "plan", plan: prepared.plan })
-  if (request.strict && prepared.plan.skipped.length > 0) {
+  if (request.strict && (prepared.plan.skipped.length > 0 || prepared.plan.unlisted.length > 0)) {
     throw new SyncError({
       message: SKIPPED_STRICT,
       code: ExitCode.RefusedBeforeChange,

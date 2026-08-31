@@ -112,7 +112,7 @@ export async function runPlan(
     )
   }
   const stdout = flags.json ? formatPlanJson(plan) : formatPlanText(plan, flags.unlisted)
-  if (flags.strict && plan.skipped.length > 0) {
+  if (flags.strict && (plan.skipped.length > 0 || plan.unlisted.length > 0)) {
     return { code: ExitCode.RefusedBeforeChange, stdout, stderr: `${SKIPPED_STRICT}\n` }
   }
   return { code: ExitCode.Success, stdout, stderr: "" }

@@ -578,6 +578,29 @@ path = "*"
   expect(result.json?.skipped.some((row) => row.reason === "unstorable_name")).toBe(true)
 })
 
+test("--strict exits 1 when any file is Unlisted", async () => {
+  const dir = await makeDir("omatune-plan-strict-unlisted-")
+  const fake = await makeDir("omatune-plan-fake-")
+  const library = join(dir, "library")
+  await mkdir(library)
+  await copyFile(join(LIBRARY, "tone-suite/01-pregap.mp3"), join(library, "ok.mp3"))
+  await writeFile(join(library, "song.alac"), "alac-bytes")
+  await writeConfig(dir, library)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "*"
+`,
+  )
+  await classicDevice(fake)
+  const result = await plan(dir, fake, ["--strict"])
+  expect(result.code).toBe(1)
+  expect(result.stderr).toContain("Unlisted")
+  expect(result.json?.unlisted.some((row) => row.relativePath === "song.alac")).toBe(true)
+})
+
 test("plan reports pending Play Counts entries without merging", async () => {
   const dir = await makeDir("omatune-plan-play-")
   const fake = await makeDir("omatune-plan-fake-")

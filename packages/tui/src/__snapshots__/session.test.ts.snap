@@ -24,7 +24,7 @@ exports[`Sync Plan screen snapshot at 110x32 1`] = `
 │   - Radiohead/Pablo Honey/01 You.mp3 5.1 MB                                                                │
 │ Keep 0                                                                                                     │
 │ Skipped 1                                                                                                  │
-│   ! Podcasts/2026-08-19 Interview.m4a unreadable tags                                                      │
+│   ! Podcasts/2026-08-19 Interview.m4a unstorable name                                                      │
 │ bytes 6.2 MB  free after 24.3 GB                                                                           │
 │                                                                                                            │
 │                                                                                                            │
@@ -54,7 +54,7 @@ exports[`Sync Plan screen snapshot at 80x24 1`] = `
 │   - Radiohead/Pablo Honey/01 You.mp3 5.1 MB                                  │
 │ Keep 0                                                                       │
 │ Skipped 1                                                                    │
-│   ! Podcasts/2026-08-19 Interview.m4a unreadable tags                        │
+│   ! Podcasts/2026-08-19 Interview.m4a unstorable name                        │
 │ bytes 6.2 MB  free after 24.3 GB                                             │
 │                                                                              │
 │                                                                              │
@@ -150,7 +150,7 @@ exports[`Report screen snapshot at 110x32 1`] = `
 ┌─ Report ───────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Sync complete in 0:05                                                                                      │
 │ +1 added  -1 removed  0 kept  1 skipped                                                                    │
-│   ! Podcasts/2026-08-19 Interview.m4a unreadable tags                                                      │
+│   ! Podcasts/2026-08-19 Interview.m4a unstorable name                                                      │
 │ Ejected - safe to unplug.                                                                                  │
 │                                                                                                            │
 │                                                                                                            │
@@ -178,7 +178,7 @@ exports[`Report screen snapshot at 80x24 1`] = `
 ┌─ Report ─────────────────────────────────────────────────────────────────────┐
 │ Sync complete in 0:05                                                        │
 │ +1 added  -1 removed  0 kept  1 skipped                                      │
-│   ! Podcasts/2026-08-19 Interview.m4a unreadable tags                        │
+│   ! Podcasts/2026-08-19 Interview.m4a unstorable name                        │
 │ Ejected - safe to unplug.                                                    │
 │                                                                              │
 │                                                                              │

@@ -428,6 +428,28 @@ path = "*"
   expect(result.stderr).toContain("Skipped")
 })
 
+test("--strict refuses on an Unlisted file", async () => {
+  const dir = await makeDir("omatune-sync-strict-unlisted-")
+  const fake = await makeDir("omatune-sync-fake-")
+  const library = join(dir, "library")
+  await mkdir(library)
+  await copyFile(join(LIBRARY, "tone-suite/01-pregap.mp3"), join(library, "ok.mp3"))
+  await writeFile(join(library, "song.alac"), "alac-bytes")
+  await writeConfig(dir, library)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "*"
+`,
+  )
+  await emptyClassic(fake)
+  const result = await sync(dir, fake, ["--yes", "--strict", "--no-eject"])
+  expect(result.code).toBe(1)
+  expect(result.stderr).toContain("Unlisted")
+})
+
 test("sync summary counts Unlisted files", async () => {
   const dir = await makeDir("omatune-sync-unlisted-")
   const fake = await makeDir("omatune-sync-fake-")

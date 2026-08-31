@@ -4,7 +4,6 @@ import { isTranscodedExtension } from "./transcode-plan.ts"
 import type { TrackTags } from "./tags.ts"
 
 export type SkipReason =
-  | "unreadable_tags"
   | "unsupported_format"
   | "unstorable_name"
   | "disk_full"
@@ -134,7 +133,6 @@ export function evaluateSelection(
       continue
     }
     if (!identity || !file.tags) {
-      skipped.push({ path: file.relativePath, reason: "unreadable_tags" })
       continue
     }
     selected.push({
