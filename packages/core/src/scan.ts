@@ -24,7 +24,7 @@ const AUDIO_EXTENSIONS = new Set([
   "aif",
 ])
 
-const SUPPORTED_EXTENSIONS = new Set(["mp3", "m4a"])
+const SUPPORTED_EXTENSIONS = new Set(["mp3", "m4a", "flac"])
 
 export function extensionOf(relativePath: string): string {
   const base = relativePath.split("/").pop() ?? ""

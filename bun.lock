@@ -25,6 +25,7 @@
       "dependencies": {
         "@omatune/device-database": "workspace:*",
         "@omatune/platform": "workspace:*",
+        "@omatune/transcode": "workspace:*",
         "effect": "3.22.1",
         "jpeg-js": "0.4.4",
         "smol-toml": "1.8.0",
@@ -38,6 +39,9 @@
       "dependencies": {
         "effect": "3.22.1",
       },
+    },
+    "packages/transcode": {
+      "name": "@omatune/transcode",
     },
     "packages/tui": {
       "name": "@omatune/tui",
@@ -57,6 +61,8 @@
     "@omatune/device-database": ["@omatune/device-database@workspace:packages/device-database"],
 
     "@omatune/platform": ["@omatune/platform@workspace:packages/platform"],
+
+    "@omatune/transcode": ["@omatune/transcode@workspace:packages/transcode"],
 
     "@omatune/tui": ["@omatune/tui@workspace:packages/tui"],
 

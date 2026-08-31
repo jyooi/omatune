@@ -1,15 +1,17 @@
 {
   "description": "Expected counts and tags for the Verification Library. Device Checklist items and tests read this file.",
   "counts": {
-    "tracks": 12,
-    "albums": 3,
+    "tracks": 14,
+    "albums": 4,
     "albumArtists": 2,
-    "tracksWithArtwork": 11
+    "tracksWithArtwork": 13
   },
   "tracks": [
     {
       "path": "library/tone-suite/01-pregap.mp3",
       "codec": "mp3",
+      "sampleRate": 44100,
+      "bitDepth": 16,
       "title": "Pregap",
       "artist": "Björk",
       "album": "Tone Suite",
@@ -31,6 +33,8 @@
     {
       "path": "library/tone-suite/02-postgap.mp3",
       "codec": "mp3",
+      "sampleRate": 44100,
+      "bitDepth": 16,
       "title": "Postgap",
       "artist": "Björk",
       "album": "Tone Suite",
@@ -52,6 +56,8 @@
     {
       "path": "library/tone-suite/03-steady.mp3",
       "codec": "mp3",
+      "sampleRate": 44100,
+      "bitDepth": 16,
       "title": "Steady",
       "artist": "Björk",
       "album": "Tone Suite",
@@ -68,6 +74,8 @@
     {
       "path": "library/tone-suite/04-fifth.mp3",
       "codec": "mp3",
+      "sampleRate": 44100,
+      "bitDepth": 16,
       "title": "Fifth",
       "artist": "Björk",
       "album": "Tone Suite",
@@ -84,6 +92,8 @@
     {
       "path": "library/tone-suite/05-uncovered.mp3",
       "codec": "mp3",
+      "sampleRate": 44100,
+      "bitDepth": 16,
       "title": "Uncovered",
       "artist": "Björk",
       "album": "Tone Suite",
@@ -100,6 +110,8 @@
     {
       "path": "library/field-recordings/01-alpha.m4a",
       "codec": "aac",
+      "sampleRate": 44100,
+      "bitDepth": 16,
       "title": "Alpha",
       "artist": "Ada Lovelace",
       "album": "Field Recordings",
@@ -116,6 +128,8 @@
     {
       "path": "library/field-recordings/02-beta.m4a",
       "codec": "aac",
+      "sampleRate": 44100,
+      "bitDepth": 16,
       "title": "Beta",
       "artist": "Alan Turing",
       "album": "Field Recordings",
@@ -132,6 +146,8 @@
     {
       "path": "library/field-recordings/03-gamma.m4a",
       "codec": "aac",
+      "sampleRate": 44100,
+      "bitDepth": 16,
       "title": "Gamma",
       "artist": "Grace Hopper",
       "album": "Field Recordings",
@@ -148,6 +164,8 @@
     {
       "path": "library/dual-disc/d1-01-left.m4a",
       "codec": "alac",
+      "sampleRate": 44100,
+      "bitDepth": 16,
       "title": "Left",
       "artist": "Björk",
       "album": "Dual Disc",
@@ -164,6 +182,8 @@
     {
       "path": "library/dual-disc/d1-02-right.m4a",
       "codec": "alac",
+      "sampleRate": 44100,
+      "bitDepth": 16,
       "title": "Right",
       "artist": "Björk",
       "album": "Dual Disc",
@@ -180,6 +200,8 @@
     {
       "path": "library/dual-disc/d2-01-low.m4a",
       "codec": "alac",
+      "sampleRate": 44100,
+      "bitDepth": 16,
       "title": "Low",
       "artist": "Björk",
       "album": "Dual Disc",
@@ -196,6 +218,8 @@
     {
       "path": "library/dual-disc/d2-02-high.m4a",
       "codec": "alac",
+      "sampleRate": 44100,
+      "bitDepth": 16,
       "title": "High",
       "artist": "Björk",
       "album": "Dual Disc",
@@ -204,6 +228,42 @@
       "trackTotal": 2,
       "disc": 2,
       "discTotal": 2,
+      "compilation": false,
+      "artwork": true,
+      "durationSeconds": 2,
+      "gapless": null
+    },
+    {
+      "path": "library/lossless-suite/01-standard.flac",
+      "codec": "flac",
+      "sampleRate": 44100,
+      "bitDepth": 16,
+      "title": "Standard",
+      "artist": "Björk",
+      "album": "Lossless Suite",
+      "albumArtist": "Björk",
+      "track": 1,
+      "trackTotal": 2,
+      "disc": 1,
+      "discTotal": 1,
+      "compilation": false,
+      "artwork": true,
+      "durationSeconds": 2,
+      "gapless": null
+    },
+    {
+      "path": "library/lossless-suite/02-hires.flac",
+      "codec": "flac",
+      "sampleRate": 96000,
+      "bitDepth": 24,
+      "title": "Hi-Res",
+      "artist": "Björk",
+      "album": "Lossless Suite",
+      "albumArtist": "Björk",
+      "track": 2,
+      "trackTotal": 2,
+      "disc": 1,
+      "discTotal": 1,
       "compilation": false,
       "artwork": true,
       "durationSeconds": 2,

@@ -5,6 +5,7 @@ import type { FamilyRecord } from "@omatune/device-database"
 import type { OwnerState } from "./device-report.ts"
 import type { Ledger, LedgerEntry } from "./ledger.ts"
 import type { SelectedTrack, SkippedTrack } from "./rules.ts"
+import { deviceExtensionFor, estimatedTranscodedSize } from "./transcode-plan.ts"
 
 export type PlanKind = "normal" | "wipe" | "adoption"
 
@@ -12,6 +13,10 @@ export type PlannedTrack = {
   readonly path: string
   readonly devicePath: string
   readonly size: number
+  /** True when a Sync transcodes this Track before it reaches the Device. */
+  readonly transcode: boolean
+  /** True when `size` is a budget estimate rather than a measured size. */
+  readonly estimated: boolean
 }
 
 export type SyncPlan = {
@@ -24,6 +29,8 @@ export type SyncPlan = {
   readonly freeSpaceAfter: number
   readonly forceModel: string | null
   readonly playCountsPending: number
+  /** Adds that a Transcode produces, counted for the Plan summary. */
+  readonly transcodeCount: number
 }
 
 const FOLDER_COUNT = 50
@@ -135,7 +142,10 @@ export function buildPlan(input: {
       keep.push({
         path: track.relativePath,
         devicePath: prior.devicePath,
-        size: track.size,
+        // A kept Transcode already sits on the Device at its real size.
+        size: prior.transcodedSize ?? track.size,
+        transcode: track.transcode,
+        estimated: false,
       })
       continue
     }
@@ -143,8 +153,10 @@ export function buildPlan(input: {
     const hash = sha256 ?? ""
     add.push({
       path: track.relativePath,
-      devicePath: devicePathFor(hash, track.extension),
-      size: track.size,
+      devicePath: devicePathFor(hash, deviceExtensionFor(track.extension)),
+      size: track.transcode ? estimatedTranscodedSize(track.size) : track.size,
+      transcode: track.transcode,
+      estimated: track.transcode,
     })
   }
   const remove: PlannedTrack[] = []
@@ -158,7 +170,9 @@ export function buildPlan(input: {
       remove.push({
         path: entry.libraryPath,
         devicePath: entry.devicePath,
-        size: entry.size,
+        size: entry.transcodedSize ?? entry.size,
+        transcode: entry.transcodedSize !== undefined,
+        estimated: false,
       })
     }
   }
@@ -178,6 +192,7 @@ export function buildPlan(input: {
     freeSpaceAfter: input.freeBytes - bytesNeeded + bytesFreed,
     forceModel: input.forceModel,
     playCountsPending: input.playCountsPending ?? 0,
+    transcodeCount: add.filter((track) => track.transcode).length,
   }
 }
 

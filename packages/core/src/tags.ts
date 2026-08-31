@@ -1,4 +1,4 @@
-export type Codec = "mp3" | "aac" | "alac";
+export type Codec = "mp3" | "aac" | "alac" | "flac";
 
 export type Gapless = {
   encoderDelay: number;
@@ -28,7 +28,217 @@ export function readTrackTags(bytes: Uint8Array): TrackTags {
   if (bytes.length >= 3 && bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) {
     return readMp3(bytes);
   }
+  if (isFlac(bytes)) {
+    return readFlac(bytes);
+  }
   return readMp4(bytes);
+}
+
+export function isFlac(bytes: Uint8Array): boolean {
+  return (
+    bytes.length >= 4 &&
+    bytes[0] === 0x66 &&
+    bytes[1] === 0x4c &&
+    bytes[2] === 0x61 &&
+    bytes[3] === 0x43
+  );
+}
+
+/* FLAC metadata block types this reader cares about. */
+const FLAC_STREAMINFO = 0;
+const FLAC_VORBIS_COMMENT = 4;
+const FLAC_PICTURE = 6;
+
+export type FlacStreamInfo = {
+  sampleRate: number;
+  channels: number;
+  bitsPerSample: number;
+  totalSamples: number;
+};
+
+/** Reads the STREAMINFO block, which every valid FLAC stream carries first. */
+export function readFlacStreamInfo(bytes: Uint8Array): FlacStreamInfo | null {
+  for (const block of flacBlocks(bytes)) {
+    if (block.type !== FLAC_STREAMINFO) {
+      continue;
+    }
+    const data = block.data;
+    if (data.length < 34) {
+      return null;
+    }
+    // Sample rate is 20 bits, channels 3 bits, depth 5 bits, count 36 bits,
+    // all packed across bytes 10 to 17 with no byte alignment.
+    const sampleRate = ((data[10] ?? 0) << 12) | ((data[11] ?? 0) << 4) | ((data[12] ?? 0) >> 4);
+    const channels = (((data[12] ?? 0) >> 1) & 0x7) + 1;
+    const bitsPerSample = ((((data[12] ?? 0) & 0x1) << 4) | ((data[13] ?? 0) >> 4)) + 1;
+    const high = (data[13] ?? 0) & 0xf;
+    const totalSamples =
+      high * 4294967296 +
+      ((((data[14] ?? 0) << 24) | ((data[15] ?? 0) << 16) | ((data[16] ?? 0) << 8) | (data[17] ?? 0)) >>>
+        0);
+    return { sampleRate, channels, bitsPerSample, totalSamples };
+  }
+  return null;
+}
+
+type FlacBlock = { type: number; data: Uint8Array };
+
+function flacBlocks(bytes: Uint8Array): FlacBlock[] {
+  const out: FlacBlock[] = [];
+  let pos = 4;
+  while (pos + 4 <= bytes.length) {
+    const header = bytes[pos] ?? 0;
+    const last = (header & 0x80) !== 0;
+    const type = header & 0x7f;
+    const length =
+      ((bytes[pos + 1] ?? 0) << 16) | ((bytes[pos + 2] ?? 0) << 8) | (bytes[pos + 3] ?? 0);
+    const start = pos + 4;
+    if (start + length > bytes.length) {
+      break;
+    }
+    out.push({ type, data: bytes.subarray(start, start + length) });
+    pos = start + length;
+    if (last) {
+      break;
+    }
+  }
+  return out;
+}
+
+function readFlac(bytes: Uint8Array): TrackTags {
+  const comments: Record<string, string> = {};
+  let artwork: { mime: string; bytes: Uint8Array } | null = null;
+  let info: FlacStreamInfo | null = null;
+
+  for (const block of flacBlocks(bytes)) {
+    if (block.type === FLAC_VORBIS_COMMENT) {
+      readVorbisComment(block.data, comments);
+    } else if (block.type === FLAC_PICTURE && artwork === null) {
+      artwork = readFlacPicture(block.data);
+    }
+  }
+  info = readFlacStreamInfo(bytes);
+
+  const trackPair = parseSlashNumber(comments.tracknumber ?? comments.track);
+  const discPair = parseSlashNumber(comments.discnumber ?? comments.disc);
+  const trackTotal = firstNumber(comments.tracktotal, comments.totaltracks);
+  const discTotal = firstNumber(comments.disctotal, comments.totaldiscs);
+  // Tag editors disagree on the album-artist key, so all three spellings count.
+  const albumArtist =
+    comments.albumartist ?? comments["album artist"] ?? comments.album_artist ?? null;
+  return {
+    title: comments.title ?? null,
+    artist: comments.artist ?? null,
+    album: comments.album ?? null,
+    albumArtist,
+    track: trackPair.track,
+    trackTotal: trackPair.trackTotal ?? trackTotal,
+    disc: discPair.track,
+    discTotal: discPair.trackTotal ?? discTotal,
+    compilation: isCompilation(comments),
+    hasArtwork: artwork !== null,
+    artworkMime: artwork?.mime ?? null,
+    artworkBytes: artwork?.bytes ?? null,
+    codec: "flac",
+    // FLAC carries no encoder delay, so a Transcode reports its own gapless
+    // values instead of inheriting any from here.
+    gapless: null,
+    durationSeconds:
+      info && info.sampleRate > 0 && info.totalSamples > 0
+        ? info.totalSamples / info.sampleRate
+        : null,
+  };
+}
+
+function firstNumber(...values: Array<string | undefined>): number | null {
+  for (const value of values) {
+    if (value === undefined) {
+      continue;
+    }
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function isCompilation(comments: Record<string, string>): boolean {
+  const value = comments.compilation ?? comments.itunescompilation;
+  if (value === undefined) {
+    return false;
+  }
+  const normalised = value.trim().toLowerCase();
+  return normalised === "1" || normalised === "true" || normalised === "yes";
+}
+
+/* Vorbis comments are little endian, unlike every other FLAC field. */
+function readVorbisComment(data: Uint8Array, out: Record<string, string>): void {
+  const decoder = new TextDecoder("utf-8");
+  let pos = 0;
+  const vendorLength = readU32Le(data, pos);
+  pos += 4 + vendorLength;
+  if (pos + 4 > data.length) {
+    return;
+  }
+  const count = readU32Le(data, pos);
+  pos += 4;
+  for (let i = 0; i < count; i++) {
+    if (pos + 4 > data.length) {
+      return;
+    }
+    const length = readU32Le(data, pos);
+    pos += 4;
+    if (pos + length > data.length) {
+      return;
+    }
+    const entry = decoder.decode(data.subarray(pos, pos + length));
+    pos += length;
+    const split = entry.indexOf("=");
+    if (split <= 0) {
+      continue;
+    }
+    const key = entry.slice(0, split).toLowerCase();
+    // The first value wins, which matches how tag editors write duplicates.
+    if (!(key in out)) {
+      out[key] = entry.slice(split + 1);
+    }
+  }
+}
+
+function readFlacPicture(data: Uint8Array): { mime: string; bytes: Uint8Array } | null {
+  let pos = 4;
+  const mimeLength = readU32(data, pos);
+  pos += 4;
+  if (pos + mimeLength > data.length) {
+    return null;
+  }
+  const mime = ascii(data.subarray(pos, pos + mimeLength));
+  pos += mimeLength;
+  const descLength = readU32(data, pos);
+  pos += 4 + descLength;
+  // Width, height, depth, and colour count sit between the description and
+  // the picture bytes.
+  pos += 16;
+  if (pos + 4 > data.length) {
+    return null;
+  }
+  const dataLength = readU32(data, pos);
+  pos += 4;
+  if (pos + dataLength > data.length) {
+    return null;
+  }
+  return { mime, bytes: data.subarray(pos, pos + dataLength) };
+}
+
+function readU32Le(bytes: Uint8Array, offset: number): number {
+  return (
+    ((bytes[offset] ?? 0) |
+      ((bytes[offset + 1] ?? 0) << 8) |
+      ((bytes[offset + 2] ?? 0) << 16) |
+      ((bytes[offset + 3] ?? 0) << 24)) >>>
+    0
+  );
 }
 
 function readMp3(bytes: Uint8Array): TrackTags {

@@ -88,8 +88,8 @@ body:
   - type: dropdown
     id: dc_04
     attributes:
-      label: "DC-04: Play one mp3, one AAC m4a, one ALAC m4a to the end"
-      description: "Pass: No skip or error; now-playing shows tagged title, artist, Album, duration."
+      label: "DC-04: Play one mp3, one AAC m4a, one ALAC m4a, and one transcoded Track to the end"
+      description: "Pass: No skip or error; now-playing shows tagged title, artist, Album, duration. The transcoded Track is from the FLAC Album lossless-suite in the Verification Library."
       options:
         - pass
         - fail

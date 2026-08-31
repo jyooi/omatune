@@ -88,11 +88,15 @@ const addTrack = {
   path: "Radiohead/Kid A/01 Everything In Its Right Place.mp3",
   devicePath: "iPod_Control/Music/F00/bb.mp3",
   size: 6_200_000,
+  transcode: false,
+  estimated: false,
 }
 const removeTrack = {
   path: "Radiohead/Pablo Honey/01 You.mp3",
   devicePath: "iPod_Control/Music/F00/aa.mp3",
   size: 5_100_000,
+  transcode: false,
+  estimated: false,
 }
 
 function makePlan(kind: SyncPlan["kind"] = "normal"): SyncPlan {
@@ -106,6 +110,7 @@ function makePlan(kind: SyncPlan["kind"] = "normal"): SyncPlan {
     freeSpaceAfter: 24_298_900_000,
     forceModel: null,
     playCountsPending: 0,
+    transcodeCount: 0,
   }
 }
 

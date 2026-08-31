@@ -291,7 +291,8 @@ export function planOf(
 
 export function formatPlanSummary(plan: SyncPlan): string {
   const fits = plan.freeSpaceAfter >= 0 ? "fits" : "does not fit"
-  return `+${plan.add.length} -${plan.remove.length}  ${formatBytes(plan.bytesNeeded)}  ${fits}`
+  const transcodes = plan.transcodeCount > 0 ? ` ~${plan.transcodeCount}` : ""
+  return `+${plan.add.length} -${plan.remove.length}${transcodes}  ${formatBytes(plan.bytesNeeded)}  ${fits}`
 }
 
 export function mirrorRows(artists: ReadonlyArray<ArtistNode>, plan: SyncPlan): MirrorRow[] {

@@ -1,5 +1,6 @@
 import type { AppSelection, SelectionRule } from "./config.ts"
 import { isSupportedExtension, type ScannedFile } from "./scan.ts"
+import { isTranscodedExtension } from "./transcode-plan.ts"
 import type { TrackTags } from "./tags.ts"
 
 export type SkipReason =
@@ -7,6 +8,7 @@ export type SkipReason =
   | "unsupported_format"
   | "unstorable_name"
   | "disk_full"
+  | "transcode_failed"
 
 export type SkippedTrack = {
   readonly path: string
@@ -21,6 +23,8 @@ export type SelectedTrack = {
   readonly tags: TrackTags
   readonly albumArtist: string
   readonly album: string
+  /** True when a Sync converts this Track on the way to the Device. */
+  readonly transcode: boolean
 }
 
 const FAT32_ILLEGAL = /[<>:"/\\|?*\u0000-\u001f]/
@@ -141,6 +145,7 @@ export function evaluateSelection(
       tags: file.tags,
       albumArtist: identity.albumArtist,
       album: identity.album,
+      transcode: isTranscodedExtension(file.extension),
     })
   }
   return { selected, skipped }
