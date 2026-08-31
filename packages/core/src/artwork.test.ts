@@ -55,6 +55,59 @@ test("writes one ArtworkDB row per Track with Artwork and skips the rest", async
   }
 })
 
+test("writes a distinct, correct ithmb offset per album across a multi-album Sync", async () => {
+  if (!CLASSIC) {
+    throw new Error("missing classic family")
+  }
+  const root = await mkdtemp(join(tmpdir(), "omatune-art-"))
+  const cache = join(root, "cache")
+  const mount = join(root, "mount")
+  const coverA = pngSolid(4, 4, [196, 30, 58])
+  const coverB = pngSolid(4, 4, [10, 200, 40])
+  const coverC = pngSolid(4, 4, [40, 60, 220])
+  const result = await writeDeviceArtwork({
+    mountPoint: mount,
+    family: CLASSIC,
+    cacheDir: cache,
+    tracks: [
+      track("album-a/01.mp3", "1", "Artist A", "Album A", coverA),
+      track("album-b/01.mp3", "2", "Artist B", "Album B", coverB),
+      track("album-c/01.mp3", "3", "Artist C", "Album C", coverC),
+    ],
+  })
+  expect([...result.dbidsWithArtwork].sort()).toEqual(["1", "2", "3"])
+  const bytes = new Uint8Array(
+    await Bun.file(join(mount, "iPod_Control", "Artwork", "ArtworkDB")).arrayBuffer(),
+  )
+  const { imageItems, parseArtworkdb, mhiiDbid, thumbnailsOf, artworkFormatRows } = await import(
+    "@omatune/device-database"
+  )
+  const db = parseArtworkdb(bytes)
+  const items = imageItems(db)
+  expect(items).toHaveLength(3)
+  const byDbid = new Map(items.map((item) => [mhiiDbid(item).toString(), item]))
+  const rows = artworkFormatRows[CLASSIC.family] ?? []
+  for (const row of rows) {
+    const offsetsInOrder = ["1", "2", "3"].map((dbid) => {
+      const item = byDbid.get(dbid)
+      if (!item) {
+        throw new Error(`missing image for dbid ${dbid}`)
+      }
+      const thumb = thumbnailsOf(item).find((entry) => entry.formatId === row.id)
+      if (!thumb) {
+        throw new Error(`missing thumb for format ${row.id}`)
+      }
+      return thumb.offset
+    })
+    expect(new Set(offsetsInOrder).size).toBe(3)
+    expect(offsetsInOrder).toEqual([0, row.blockBytes, row.blockBytes * 2])
+    const ithmb = new Uint8Array(
+      await Bun.file(join(mount, "iPod_Control", "Artwork", `F${row.id}_1.ithmb`)).arrayBuffer(),
+    )
+    expect(ithmb.byteLength).toBe(row.blockBytes * 3)
+  }
+})
+
 test("a tight space budget skips Artwork with disk_full and writes no files", async () => {
   if (!CLASSIC) {
     throw new Error("missing classic family")
