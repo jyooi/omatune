@@ -35,10 +35,13 @@ export type ItunesdbTrack = {
 
 export function buildItunesdb(tracks: ReadonlyArray<ItunesdbTrack>): Itunesdb {
   const mhits = tracks.map((track, index) => mhitOf(track, index + 1))
-  const items = tracks.map((track, index) => mhipOf(index + 1))
   const trackSection = mhsdOf(1, mhltOf(mhits))
-  const playlistSection = mhsdOf(2, mhlpOf([mhypOf("Library", items)]))
-  return { chunk: mhbdOf([trackSection, playlistSection]) }
+  // The firmware reads the master playlist to enumerate tracks, and iTunes
+  // writes the playlist list into both mhsd type 2 and type 3.
+  const playlists = () => mhlpOf([mhypOf("Library", tracks.map((_, index) => mhipOf(index + 1)))])
+  const playlistSection = mhsdOf(2, playlists())
+  const podcastSection = mhsdOf(3, playlists())
+  return { chunk: mhbdOf([trackSection, playlistSection, podcastSection]) }
 }
 
 export function serializeSignedLayout(tracks: ReadonlyArray<ItunesdbTrack>): Uint8Array {
@@ -49,8 +52,8 @@ export function itunesdbReserveBytes(trackCount: number): number {
   const count = Math.max(0, Math.floor(trackCount))
   const mhod = MHOD_HEADER + MHOD_BODY_PREFIX + STRING_UTF16_BYTES
   const fixed =
-    MHBD_HEADER + 2 * MHSD_HEADER + MHLT_HEADER + MHLP_HEADER + MHYP_HEADER + mhod
-  const perTrack = MHIT_HEADER + MHIP_HEADER + 5 * mhod
+    MHBD_HEADER + 3 * MHSD_HEADER + MHLT_HEADER + 2 * (MHLP_HEADER + MHYP_HEADER + mhod)
+  const perTrack = MHIT_HEADER + 2 * MHIP_HEADER + 7 * mhod
   return roundUp(fixed, RESERVE_ALIGN) + roundUp(perTrack, RESERVE_ALIGN) * count
 }
 
@@ -115,11 +118,15 @@ function mhlpOf(playlists: Chunk[]): Chunk {
   return { id: "mhlp", header, children: playlists, body: empty(), padding: empty() }
 }
 
+const MASTER_PLAYLIST_ID = 0x6f6d6174756e6501n
+
 function mhypOf(name: string, items: Chunk[]): Chunk {
   const header = new Uint8Array(MHYP_HEADER)
   writeFourCc(header, 0, "mhyp")
   writeU32(header, 12, 1)
   writeU32(header, 16, items.length)
+  writeU32(header, 20, 1)
+  writeU64(header, 28, MASTER_PLAYLIST_ID)
   return {
     id: "mhyp",
     header,
@@ -133,8 +140,18 @@ function mhipOf(trackId: number): Chunk {
   const header = new Uint8Array(MHIP_HEADER)
   writeFourCc(header, 0, "mhip")
   writeU32(header, 12, 1)
+  writeU32(header, 20, trackId)
   writeU32(header, 24, trackId)
-  return { id: "mhip", header, children: [], body: empty(), padding: empty() }
+  return { id: "mhip", header, children: [positionMhod(trackId)], body: empty(), padding: empty() }
+}
+
+function positionMhod(position: number): Chunk {
+  const body = new Uint8Array(20)
+  writeU32(body, 0, position)
+  const header = new Uint8Array(MHOD_HEADER)
+  writeFourCc(header, 0, "mhod")
+  writeU32(header, 12, 100)
+  return { id: "mhod", header, children: [], body, padding: empty() }
 }
 
 function mhitOf(track: ItunesdbTrack, trackId: number): Chunk {
@@ -155,7 +172,9 @@ function mhitOf(track: ItunesdbTrack, trackId: number): Chunk {
   writeU32(header, 12, mhods.length)
   writeU32(header, 16, trackId)
   writeU32(header, 20, 1)
-  writeU32(header, 24, 1)
+  writeU32(header, 24, filetypeMarker(track.devicePath))
+  header[28] = 1
+  header[29] = track.devicePath.toLowerCase().endsWith(".mp3") ? 1 : 0
   writeU32(header, 36, track.size)
   writeU32(header, 40, durationMs(tags.durationSeconds))
   writeU32(header, 44, tags.track ?? 0)
@@ -197,6 +216,17 @@ function durationMs(seconds: number | null): number {
     return 0
   }
   return Math.round(seconds * 1000)
+}
+
+function filetypeMarker(devicePath: string): number {
+  const marker = devicePath.toLowerCase().endsWith(".mp3") ? "MP3 " : "M4A "
+  return (
+    ((marker.charCodeAt(0) << 24) |
+      (marker.charCodeAt(1) << 16) |
+      (marker.charCodeAt(2) << 8) |
+      marker.charCodeAt(3)) >>>
+    0
+  )
 }
 
 function fileName(path: string): string {
