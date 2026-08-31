@@ -137,3 +137,20 @@ export {
   type ManifestTrack,
   type SyntheticTrack,
 } from "./synthetic.ts";
+export {
+  MHIT_FILE_TYPE,
+  MHIT_GAPLESS_ALBUM_FLAG,
+  MHIT_GAPLESS_TRACK_FLAG,
+  MHIT_MEDIA_TYPE,
+  MHIT_TYPE_1,
+  MHIT_TYPE_2,
+  MHIT_UNKNOWN_D0,
+  MHYP_MASTER_FLAG,
+  MHYP_STRING_MHOD_COUNT,
+  MHOD_COUNT,
+  fileTypeCodeFor,
+  firmwareProblems,
+  firmwareReadable,
+  formatBytesFor,
+  type FirmwareProblem,
+} from "./firmware.ts";

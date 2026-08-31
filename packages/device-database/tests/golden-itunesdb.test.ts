@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   databaseVersion,
+  firmwareProblems,
   hash58,
   hash72,
   parseItunesdb,
@@ -61,6 +62,19 @@ describe("S2 golden iTunesDB", () => {
       }
     },
   );
+
+  /*
+   * Every rule in `firmwareProblems` claims that iTunes always writes a
+   * field a certain way. This test is what keeps that claim honest. A rule
+   * that a genuine Fixture breaks is a wrong rule, not a real finding.
+   */
+  test.skipIf(skip)("Fixture iTunesDB files break no firmware rule", async () => {
+    for (const fixture of cases) {
+      const bytes = await Bun.file(itunesdbPath(fixture.dir)).bytes();
+      const problems = firmwareProblems(parseItunesdb(bytes));
+      expect(problems.map((problem) => `${fixture.name} ${problem.where}: ${problem.detail}`)).toEqual([]);
+    }
+  });
 
   test.skipIf(skip)("Fixture gapless fields survive parse and re-serialise", async () => {
     for (const fixture of cases) {
