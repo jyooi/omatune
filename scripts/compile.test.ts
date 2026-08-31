@@ -1,13 +1,15 @@
 import { expect, test } from "bun:test"
-import { BUN_VERSION, OPENTUI_CORE_VERSION, TARGETS, binaryName, hostTarget } from "./compile.ts"
+import { TARGETS, assertToolPins, binaryName, hostTarget, opentuiCoreVersion } from "./compile.ts"
 
-test("release targets are the four compile names", () => {
-  expect(TARGETS.map((target) => target.name)).toEqual([
-    "linux-x64",
-    "linux-arm64",
-    "darwin-arm64",
-    "darwin-x64",
-  ])
+test("assertToolPins accepts the pinned Bun", () => {
+  expect(() => assertToolPins()).not.toThrow()
+})
+
+test("opentui core pin matches the tui package", async () => {
+  expect(await opentuiCoreVersion()).toBe("0.5.9")
+})
+
+test("binary names match the four release targets", () => {
   expect(TARGETS.map((target) => binaryName(target.name))).toEqual([
     "omatune-linux-x64",
     "omatune-linux-arm64",
@@ -16,19 +18,19 @@ test("release targets are the four compile names", () => {
   ])
 })
 
-test("Linux targets pin glibc and Bun plus OpenTUI versions stay exact", () => {
+test("Linux targets pin glibc and Darwin leaves libc unset", () => {
   const linux = TARGETS.filter((target) => target.name.startsWith("linux-"))
   expect(linux.every((target) => target.libc === "glibc")).toBe(true)
   expect(TARGETS.filter((target) => target.name.startsWith("darwin-")).every((target) => target.libc === null)).toBe(
     true,
   )
-  expect(BUN_VERSION).toBe("1.4.0")
-  expect(OPENTUI_CORE_VERSION).toBe("0.5.9")
-  expect(Bun.version).toBe(BUN_VERSION)
 })
 
 test("host target matches this machine", () => {
-  if (process.platform === "linux" && process.arch === "x64") {
-    expect(hostTarget()).toBe("linux-x64")
+  const key = `${process.platform}-${process.arch}`
+  if (key === "linux-x64" || key === "linux-arm64" || key === "darwin-arm64" || key === "darwin-x64") {
+    expect(hostTarget()).toBe(key)
+    return
   }
+  expect(() => hostTarget()).toThrow()
 })

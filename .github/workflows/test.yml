@@ -28,4 +28,6 @@ jobs:
       - run: bun test
       - run: bun scripts/render.ts --check
       - run: bun scripts/compile.ts --target ${{ matrix.target }}
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y udisks2
       - run: bun scripts/pty-devices.ts dist/omatune-${{ matrix.target }}
