@@ -107,12 +107,13 @@ function makePlan(kind: SyncPlan["kind"] = "normal"): SyncPlan {
     add: [addTrack],
     remove: [removeTrack],
     keep: [],
-    skipped: [{ path: "Podcasts/2026-08-19 Interview.m4a", reason: "unreadable_tags" }],
+    skipped: [{ path: "Podcasts/2026-08-19 Interview.m4a", reason: "unstorable_name" }],
     bytesNeeded: 6_200_000,
     freeSpaceAfter: 24_298_900_000,
     forceModel: null,
     playCountsPending: 0,
     transcodeCount: 0,
+    unlisted: [],
   }
 }
 
@@ -236,7 +237,7 @@ test("Sync Plan screen snapshot at 110x32", async () => {
   expect(frame).toContain("Remove 1")
   expect(frame).toContain("Keep 0")
   expect(frame).toContain("Skipped 1")
-  expect(frame).toContain("unreadable tags")
+  expect(frame).toContain("unstorable name")
   expect(frame).toContain("Device after Sync")
   expect(frame).toContain("Sync now? [y/N]")
   expect(frame).toMatchSnapshot()
@@ -373,7 +374,7 @@ test("Report screen snapshot at 110x32", async () => {
   expect(frame).toContain(EJECTED_LINE)
   expect(frame).toContain("+1 added")
   expect(frame).toContain("Podcasts/2026-08-19 Interview.m4a")
-  expect(frame).toContain("unreadable tags")
+  expect(frame).toContain("unstorable name")
   expect(frame).toMatchSnapshot()
   view.handle.dispose()
   view.renderer.destroy()
@@ -406,7 +407,7 @@ test("Enter on the report prints it to stdout after the screen closes", async ()
   expect(view.finished[0]?.stdout).toContain(EJECTED_LINE)
   expect(view.finished[0]?.stdout).toContain("Elapsed:")
   expect(view.finished[0]?.stdout).toContain(
-    "Skipped Podcasts/2026-08-19 Interview.m4a: unreadable_tags",
+    "Skipped Podcasts/2026-08-19 Interview.m4a: unstorable_name",
   )
   view.renderer.destroy()
 })

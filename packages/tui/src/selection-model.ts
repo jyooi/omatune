@@ -11,6 +11,7 @@ import {
   type SelectionRule,
   type SyncPlan,
   type TrackTags,
+  type UnlistedFile,
 } from "@omatune/core"
 import { formatBytes } from "./bytes.ts"
 
@@ -52,6 +53,11 @@ export type TreeRow =
       readonly title: string
       readonly path: string
       readonly selected: boolean
+    }
+  | {
+      readonly kind: "unlisted"
+      readonly path: string
+      readonly reason: string
     }
 
 export type VisibleRule = {
@@ -152,6 +158,7 @@ export function flattenTree(
   artists: ReadonlyArray<ArtistNode>,
   selected: ReadonlySet<string>,
   expanded: ReadonlySet<string>,
+  unlisted: ReadonlyArray<UnlistedFile> = [],
 ): TreeRow[] {
   const rows: TreeRow[] = []
   for (const artist of artists) {
@@ -176,6 +183,9 @@ export function flattenTree(
         }
       }
     }
+  }
+  for (const file of unlisted) {
+    rows.push({ kind: "unlisted", path: file.relativePath, reason: file.reason })
   }
   return rows
 }

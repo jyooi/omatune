@@ -201,7 +201,7 @@ async function executeLocked(
 ): Promise<void> {
   const prepared = await prepareSync(request, serial, platform)
   await emit({ type: "plan", plan: prepared.plan })
-  if (request.strict && prepared.plan.skipped.length > 0) {
+  if (request.strict && (prepared.plan.skipped.length > 0 || prepared.plan.unlisted.length > 0)) {
     throw new SyncError({
       message: SKIPPED_STRICT,
       code: ExitCode.RefusedBeforeChange,
@@ -312,7 +312,7 @@ async function prepareSync(
       code: ExitCode.RefusedBeforeChange,
     })
   }
-  const files = await scanLibrary(loaded.config.library)
+  const { files, unlisted } = await scanLibrary(loaded.config.library)
   const { selected, skipped } = evaluateSelection(files, selection.value)
   const kind = planKind({ ownerState: report.ownerState, hasLedger: ledgerResult.value !== null })
   const hashes = await hashesForAdds(
@@ -342,6 +342,7 @@ async function prepareSync(
     freeBytes: report.freeSpaceBytes,
     forceModel: request.forceModel,
     playCountsPending,
+    unlisted,
   })
   if (await pathExists(join(info.mountPoint, SYNCING_MARKER))) {
     plan = await reconcilePlanWithDevice(plan, info.mountPoint)

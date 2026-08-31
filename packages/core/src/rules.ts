@@ -1,11 +1,9 @@
 import type { AppSelection, SelectionRule } from "./config.ts"
-import { isSupportedExtension, type ScannedFile } from "./scan.ts"
+import type { ScannedFile } from "./scan.ts"
 import { isTranscodedExtension } from "./transcode-plan.ts"
 import type { TrackTags } from "./tags.ts"
 
 export type SkipReason =
-  | "unreadable_tags"
-  | "unsupported_format"
   | "unstorable_name"
   | "disk_full"
   | "transcode_failed"
@@ -125,16 +123,11 @@ export function evaluateSelection(
     if (!matchesSelection(file, identity, selection)) {
       continue
     }
-    if (!isSupportedExtension(file.extension)) {
-      skipped.push({ path: file.relativePath, reason: "unsupported_format" })
-      continue
-    }
     if (isUnstorableName(file.relativePath)) {
       skipped.push({ path: file.relativePath, reason: "unstorable_name" })
       continue
     }
     if (!identity || !file.tags) {
-      skipped.push({ path: file.relativePath, reason: "unreadable_tags" })
       continue
     }
     selected.push({

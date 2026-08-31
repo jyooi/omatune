@@ -530,14 +530,12 @@ path = "tone-suite/01-pregap.mp3"
   expect(await Bun.file(db).text()).toBe(beforeDb)
 })
 
-test("Skipped reasons cover format, tags, and unstorable names", async () => {
+test("Skipped reasons cover unstorable names", async () => {
   const dir = await makeDir("omatune-plan-skip-")
   const fake = await makeDir("omatune-plan-fake-")
   const library = join(dir, "library")
   await mkdir(library)
   await copyFile(join(LIBRARY, "tone-suite/01-pregap.mp3"), join(library, "ok.mp3"))
-  await writeFile(join(library, "bad.wav"), "RIFF")
-  await writeFile(join(library, "trunc.mp3"), "ID3")
   await copyFile(join(LIBRARY, "tone-suite/01-pregap.mp3"), join(library, "bad:name.mp3"))
   await writeConfig(dir, library)
   await writeSelection(
@@ -553,8 +551,6 @@ path = "*"
   expect(result.code).toBe(0)
   const skipped = result.json?.skipped ?? []
   const byPath = new Map(skipped.map((row) => [row.path, row.reason]))
-  expect(byPath.get("bad.wav")).toBe("unsupported_format")
-  expect(byPath.get("trunc.mp3")).toBe("unreadable_tags")
   expect(byPath.get("bad:name.mp3")).toBe("unstorable_name")
   expect(result.json?.add.map((track) => track.path)).toEqual(["ok.mp3"])
 })
@@ -565,7 +561,7 @@ test("--strict exits 1 when any Track is Skipped", async () => {
   const library = join(dir, "library")
   await mkdir(library)
   await copyFile(join(LIBRARY, "tone-suite/01-pregap.mp3"), join(library, "ok.mp3"))
-  await writeFile(join(library, "bad.wav"), "RIFF")
+  await copyFile(join(LIBRARY, "tone-suite/01-pregap.mp3"), join(library, "bad:name.mp3"))
   await writeConfig(dir, library)
   await writeSelection(
     dir,
@@ -579,7 +575,30 @@ path = "*"
   const result = await plan(dir, fake, ["--strict"])
   expect(result.code).toBe(1)
   expect(result.stderr).toContain("Skipped")
-  expect(result.json?.skipped.some((row) => row.reason === "unsupported_format")).toBe(true)
+  expect(result.json?.skipped.some((row) => row.reason === "unstorable_name")).toBe(true)
+})
+
+test("--strict exits 1 when any file is Unlisted", async () => {
+  const dir = await makeDir("omatune-plan-strict-unlisted-")
+  const fake = await makeDir("omatune-plan-fake-")
+  const library = join(dir, "library")
+  await mkdir(library)
+  await copyFile(join(LIBRARY, "tone-suite/01-pregap.mp3"), join(library, "ok.mp3"))
+  await writeFile(join(library, "song.alac"), "alac-bytes")
+  await writeConfig(dir, library)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "*"
+`,
+  )
+  await classicDevice(fake)
+  const result = await plan(dir, fake, ["--strict"])
+  expect(result.code).toBe(1)
+  expect(result.stderr).toContain("Unlisted")
+  expect(result.json?.unlisted.some((row) => row.relativePath === "song.alac")).toBe(true)
 })
 
 test("plan reports pending Play Counts entries without merging", async () => {
@@ -613,4 +632,88 @@ path = "tone-suite/01-pregap.mp3"
   const json = JSON.parse(result.stdout) as SyncPlan
   expect(json.playCountsPending).toBe(2)
   expect(await Bun.file(playDataPath(join(dataHome, "omatune"))).exists()).toBe(false)
+})
+
+function emptyM4a(): Uint8Array {
+  const ftypBody = new TextEncoder().encode("M4A isom")
+  const ftyp = new Uint8Array(8 + ftypBody.length)
+  ftyp[3] = ftyp.length
+  ftyp[4] = 0x66
+  ftyp[5] = 0x74
+  ftyp[6] = 0x79
+  ftyp[7] = 0x70
+  ftyp.set(ftypBody, 8)
+  const moov = new Uint8Array(8)
+  moov[3] = 8
+  moov[4] = 0x6d
+  moov[5] = 0x6f
+  moov[6] = 0x6f
+  moov[7] = 0x76
+  const out = new Uint8Array(ftyp.length + moov.length)
+  out.set(ftyp, 0)
+  out.set(moov, ftyp.length)
+  return out
+}
+
+test("plan JSON lists .alac and untagged m4a as Unlisted", async () => {
+  const dir = await makeDir("omatune-plan-unlisted-")
+  const fake = await makeDir("omatune-plan-fake-")
+  const library = join(dir, "library")
+  await mkdir(library)
+  await copyFile(join(LIBRARY, "tone-suite/01-pregap.mp3"), join(library, "ok.mp3"))
+  await writeFile(join(library, "song.alac"), "alac-bytes")
+  await Bun.write(join(library, "bare.m4a"), emptyM4a())
+  await writeFile(join(library, "cover.jpg"), "jpeg")
+  await writeConfig(dir, library)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "*"
+`,
+  )
+  await classicDevice(fake)
+  const result = await plan(dir, fake)
+  expect(result.code).toBe(0)
+  expect(result.json?.add.map((track) => track.path)).toEqual(["ok.mp3"])
+  expect(result.json?.unlisted).toEqual([
+    { relativePath: "bare.m4a", reason: "missing artist/album tags" },
+    { relativePath: "song.alac", reason: "rename .alac to .m4a" },
+  ])
+})
+
+test("plan text summary counts Unlisted and --unlisted prints reasons", async () => {
+  const dir = await makeDir("omatune-plan-unlisted-text-")
+  const fake = await makeDir("omatune-plan-fake-")
+  const library = join(dir, "library")
+  await mkdir(library)
+  await copyFile(join(LIBRARY, "tone-suite/01-pregap.mp3"), join(library, "ok.mp3"))
+  await writeFile(join(library, "song.alac"), "alac-bytes")
+  await writeConfig(dir, library)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "*"
+`,
+  )
+  await classicDevice(fake)
+  const counted = await runMain(
+    ["plan", "--device", SERIAL, "--config", dir],
+    fakeLayer(fake),
+    testEnv(),
+  )
+  expect(counted.code).toBe(0)
+  expect(counted.stdout).toContain("Unlisted: 1")
+  expect(counted.stdout).not.toContain("Unlisted song.alac:")
+  const listed = await runMain(
+    ["plan", "--device", SERIAL, "--config", dir, "--unlisted"],
+    fakeLayer(fake),
+    testEnv(),
+  )
+  expect(listed.code).toBe(0)
+  expect(listed.stdout).toContain("Unlisted: 1")
+  expect(listed.stdout).toContain("Unlisted song.alac: rename .alac to .m4a")
 })

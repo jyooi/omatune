@@ -4,6 +4,7 @@ export type Flags = {
   yes: boolean
   noEject: boolean
   strict: boolean
+  unlisted: boolean
   device: string | null
   forceModel: string | null
   config: string | null
@@ -26,7 +27,7 @@ export type RunResult = {
 }
 
 const VALUE_FLAGS = new Set(["--device", "--force-model", "--config"])
-const BOOL_FLAGS = new Set(["--json", "--yes", "--no-eject", "--strict"])
+const BOOL_FLAGS = new Set(["--json", "--yes", "--no-eject", "--strict", "--unlisted"])
 
 export function parseArgv(argv: ReadonlyArray<string>): Flags | ParseFailure {
   const flags: Flags = {
@@ -35,6 +36,7 @@ export function parseArgv(argv: ReadonlyArray<string>): Flags | ParseFailure {
     yes: false,
     noEject: false,
     strict: false,
+    unlisted: false,
     device: null,
     forceModel: null,
     config: null,
@@ -58,6 +60,7 @@ export function parseArgv(argv: ReadonlyArray<string>): Flags | ParseFailure {
         if (name === "--yes") flags.yes = true
         if (name === "--no-eject") flags.noEject = true
         if (name === "--strict") flags.strict = true
+        if (name === "--unlisted") flags.unlisted = true
         i += 1
         continue
       }

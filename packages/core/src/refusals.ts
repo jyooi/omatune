@@ -8,7 +8,7 @@ export const NO_DEVICE_ATTACHED = "No Device attached. Plug in a Device and run 
 export const PASS_DEVICE_OR_ATTACH_ONE = "Pass --device SERIAL or attach one Device."
 
 export const SKIPPED_STRICT =
-  "Skipped Tracks in --strict mode. Drop --strict or fix the Skipped Tracks."
+  "Skipped or Unlisted files in --strict mode. Drop --strict or fix them."
 
 export const DEVICE_FULL = "Device is full. Free space on the Device and Sync again."
 

@@ -55,7 +55,7 @@ export async function runSyncCommand(
         if (!write) {
           return
         }
-        const chunk = formatLive(event, flags.json)
+        const chunk = formatLive(event, flags, events)
         if (chunk.length > 0) {
           write(chunk)
         }
@@ -68,7 +68,7 @@ export async function runSyncCommand(
     const code = "code" in error && (error.code === 1 || error.code === 2) ? error.code : ExitCode.RefusedBeforeChange
     return {
       code,
-      stdout: write ? "" : renderEvents(events, flags.json, false),
+      stdout: write ? "" : renderEvents(events, flags, false),
       stderr: `${message}\n`,
     }
   }
@@ -76,7 +76,7 @@ export async function runSyncCommand(
   const ejected = report?.type === "report" ? report.ejected : false
   return {
     code: ExitCode.Success,
-    stdout: write ? "" : renderEvents(events, flags.json, ejected),
+    stdout: write ? "" : renderEvents(events, flags, ejected),
     stderr: "",
   }
 }
@@ -122,12 +122,22 @@ async function readConfirmLine(io: RunIo): Promise<string> {
   return Buffer.concat(chunks).toString("utf8")
 }
 
-function formatLive(event: SyncEvent, json: boolean): string {
-  if (json) {
+function unlistedCount(events: ReadonlyArray<SyncEvent>): number {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const event = events[i]
+    if (event?.type === "plan") {
+      return event.plan.unlisted.length
+    }
+  }
+  return 0
+}
+
+function formatLive(event: SyncEvent, flags: Flags, events: ReadonlyArray<SyncEvent>): string {
+  if (flags.json) {
     return `${JSON.stringify(event)}\n`
   }
   if (event.type === "plan") {
-    return formatPlanText(event.plan)
+    return formatPlanText(event.plan, flags.unlisted)
   }
   if (event.type === "message") {
     return `${event.text}\n`
@@ -138,6 +148,7 @@ function formatLive(event: SyncEvent, json: boolean): string {
       `Removed: ${event.removed}`,
       `Kept: ${event.kept}`,
       `Skipped: ${event.skipped}`,
+      `Unlisted: ${unlistedCount(events)}`,
     ]
     for (const skip of event.artworkSkipped) {
       lines.push(`Skipped-for-artwork ${skip.path}: ${skip.reason}`)
@@ -150,8 +161,8 @@ function formatLive(event: SyncEvent, json: boolean): string {
   return ""
 }
 
-function renderEvents(events: ReadonlyArray<SyncEvent>, json: boolean, ejected: boolean): string {
-  if (json) {
+function renderEvents(events: ReadonlyArray<SyncEvent>, flags: Flags, ejected: boolean): string {
+  if (flags.json) {
     if (events.length === 0) {
       return ""
     }
@@ -160,7 +171,7 @@ function renderEvents(events: ReadonlyArray<SyncEvent>, json: boolean, ejected: 
   const lines: string[] = []
   for (const event of events) {
     if (event.type === "plan") {
-      lines.push(formatPlanText(event.plan).trimEnd())
+      lines.push(formatPlanText(event.plan, flags.unlisted).trimEnd())
     }
     if (event.type === "message") {
       lines.push(event.text)
@@ -170,6 +181,7 @@ function renderEvents(events: ReadonlyArray<SyncEvent>, json: boolean, ejected: 
       lines.push(`Removed: ${event.removed}`)
       lines.push(`Kept: ${event.kept}`)
       lines.push(`Skipped: ${event.skipped}`)
+      lines.push(`Unlisted: ${unlistedCount(events)}`)
       for (const skip of event.artworkSkipped) {
         lines.push(`Skipped-for-artwork ${skip.path}: ${skip.reason}`)
       }

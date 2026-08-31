@@ -131,7 +131,8 @@ A wipe asks `Wipe and Sync?` and needs the word wipe.
 
 `--json` prints the plan, messages, one progress object per line, and the report.
 `--no-eject` leaves the Device mounted.
-`--strict` refuses the Sync when Skipped Tracks exist or Play Counts is corrupt.
+`--strict` refuses the Sync when Skipped Tracks exist, Unlisted files exist, or Play Counts is corrupt.
+`--unlisted` prints each Unlisted file with its reason.
 The report always states mount state: `Ejected - safe to unplug.` on success, `Still mounted - the iPod shows no music until it is ejected.` otherwise.
 
 omatune reads `$XDG_CONFIG_HOME/omatune/config.toml`.
