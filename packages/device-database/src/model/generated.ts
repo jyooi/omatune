@@ -16,7 +16,7 @@ export const modelTable: ReadonlyArray<FamilyRecord> = [
     "ranges": [],
     "onward": [],
     "supportTier": "Verified",
-    "verifiedBy": "Reference Device, firmware 2.0.1 PC, 2026-08-31, omatune main@5350b53, HUF-275, [verification report #23](https://github.com/jyooi/omatune/issues/23)",
+    "verifiedBy": "Reference Device, firmware 2.0.1 PC",
     "notes": "hash58, Play Counts 0x1c, artwork 1055/1060/1061",
     "signature": "hash58",
     "playCountsEntryLength": 28,
