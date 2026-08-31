@@ -37,7 +37,7 @@ const REFORMAT = "Reformat the Device to FAT32."
 const READ_ONLY = "The Device is mounted read-only."
 const ID_DISAGREE = "The Device FireWire ID sources disagree."
 const ID_MISSING = "The Device has no FireWire ID."
-const LAYOUT_MISSING = "The Device is missing iPod_Control/iTunes or iPod_Control/Device."
+const LAYOUT_MISSING = "The Device is missing iPod_Control/Device."
 
 type Attached = {
   serial: string
@@ -161,9 +161,10 @@ async function readControl(mountPoint: string): Promise<ControlFiles> {
   if (control === null) {
     refuse(LAYOUT_MISSING)
   }
-  const itunes = await findChild(control, "iTunes")
+  // iPod_Control/iTunes is absent on a freshly restored Device and mid-Sync
+  // after a wipe; Sync recreates it. Only Device, which holds SysInfo, is required.
   const device = await findChild(control, "Device")
-  if (itunes === null || device === null) {
+  if (device === null) {
     refuse(LAYOUT_MISSING)
   }
   const sieText = await readOptional(join(device, "SysInfoExtended"))
