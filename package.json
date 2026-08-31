@@ -11,7 +11,10 @@
     "build": "bun run --filter '*' build",
     "generate": "bun run --filter @omatune/device-database generate",
     "test": "bun test",
-    "omatune": "bun packages/cli/src/bin.ts"
+    "omatune": "bun packages/cli/src/bin.ts",
+    "compile": "bun scripts/compile.ts",
+    "render": "bun scripts/render.ts",
+    "render:check": "bun scripts/render.ts --check"
   },
   "devDependencies": {
     "@types/bun": "1.4.0"

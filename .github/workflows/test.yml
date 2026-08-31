@@ -6,12 +6,28 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+            libc: glibc
+          - os: macos-latest
+            target: darwin-arm64
+            libc: ""
+    runs-on: ${{ matrix.os }}
+    env:
+      OPENTUI_LIBC: ${{ matrix.libc }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.0
-      - run: bun install --frozen-lockfile
+      - run: bun install --frozen-lockfile --os="*" --cpu="*"
       - run: bun run build
       - run: bun test
+      - run: bun scripts/render.ts --check
+      - run: bun scripts/compile.ts --target ${{ matrix.target }}
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y udisks2
+      - run: bun scripts/pty-devices.ts dist/omatune-${{ matrix.target }}
