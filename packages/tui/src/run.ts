@@ -1,4 +1,5 @@
 import {
+  defaultDeviceName,
   ExitCode,
   deviceNotAttached,
   formatConfigIssue,
@@ -8,6 +9,7 @@ import {
   loadSelection,
   NO_DEVICE_ATTACHED,
   PASS_DEVICE_OR_ATTACH_ONE,
+  registerDevice,
   resolveConfigDir,
   resolveDataDir,
   scanLibrary,
@@ -126,6 +128,15 @@ export async function runTui(input: RunTuiInput): Promise<TuiResult> {
             notes: report.notes,
             configDir: dir,
             dataDir,
+            registered: named !== undefined,
+            registerDevice: async () => {
+              const name = defaultDeviceName(report.family, report.serial)
+              const result = await registerDevice(dir, report.serial, name)
+              if (!result.ok) {
+                throw new Error(formatConfigIssue(result.issue))
+              }
+              return result.value
+            },
             yes: input.yes === true,
             noEject: input.noEject === true,
             strict: input.strict === true,

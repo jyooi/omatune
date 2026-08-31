@@ -79,6 +79,8 @@ export type SelectionHost = {
   readonly notes?: ReadonlyArray<string>
   readonly configDir?: string
   readonly dataDir?: string
+  readonly registered?: boolean
+  readonly registerDevice?: () => Promise<{ serial: string; name: string }>
   readonly yes?: boolean
   readonly noEject?: boolean
   readonly strict?: boolean
@@ -138,6 +140,11 @@ export function attachSelectionScreen(
   let syncEndedAt = 0
   let syncing = false
   let finishCode: 0 | 1 | 2 = 0
+  let registered = host.registered !== false
+  let registering = false
+  let registerError: string | null = null
+  let registeredName: string | null = null
+  let deviceName = host.deviceName
 
   const headerLeft = new TextRenderable(renderer, { content: "", fg: palette.text })
   const headerRight = new TextRenderable(renderer, { content: "", fg: palette.text })
@@ -151,6 +158,15 @@ export function attachSelectionScreen(
   })
   header.add(headerLeft)
   header.add(headerRight)
+
+  const noticeText = new TextRenderable(renderer, { content: "", fg: palette.text })
+  const noticeBox = new BoxRenderable(renderer, {
+    height: 0,
+    flexShrink: 0,
+    paddingLeft: 1,
+    backgroundColor: palette.panel,
+  })
+  noticeBox.add(noticeText)
 
   const tree = new ScrollBoxRenderable(renderer, {
     ...SCROLL,
@@ -267,6 +283,7 @@ export function attachSelectionScreen(
     backgroundColor: palette.background,
   })
   root.add(header)
+  root.add(noticeBox)
   root.add(panes)
   root.add(strip)
   renderer.root.add(root)
@@ -340,11 +357,12 @@ export function attachSelectionScreen(
     clampCursor()
     const wide = renderer.width >= WIDE_MIN
     panes.flexDirection = wide ? "row" : "column"
-    const packed = packHeader(host, renderer.width)
+    const packed = packHeader({ ...host, deviceName }, renderer.width)
     headerLeft.content = st`${bold(fg(palette.accent)("omatune"))} ${packed.root} ${dim("->")} ${bold(packed.deviceName)} ${dim(host.serial)} ${fg(palette.green)(host.tier)}`
     headerRight.content = packed.compactRight
       ? st`${packed.free} ${dim("·")} ${packed.tracks}`
       : st`${packed.free} free ${dim("·")} ${packed.tracks}`
+    paintNotice()
 
     const selected = selectedPathsOf(host.files, selection)
     libraryPane.title = libraryTitle(host.unlisted?.length ?? 0)
@@ -379,6 +397,46 @@ export function attachSelectionScreen(
     }
     for (const line of deviceLines(deviceFacts(host))) {
       deviceBody.add(new TextRenderable(renderer, { content: line }))
+    }
+  }
+
+  function paintNotice(): void {
+    if (mode !== "select") {
+      noticeBox.height = 0
+      noticeText.content = ""
+      return
+    }
+    if (!registered) {
+      noticeBox.height = 1
+      noticeText.content = registerNotice(host.serial, registering, registerError)
+      return
+    }
+    if (registeredName) {
+      noticeBox.height = 1
+      noticeText.content = st`${fg(palette.green)(`Registered as "${registeredName}"`)} ${dim("- rename it in config.toml")}`
+      return
+    }
+    noticeBox.height = 0
+    noticeText.content = ""
+  }
+
+  async function registerNow(): Promise<void> {
+    if (registered || registering || !host.registerDevice) {
+      return
+    }
+    registering = true
+    registerError = null
+    requestDraw()
+    try {
+      const result = await host.registerDevice()
+      registered = true
+      registeredName = result.name
+      deviceName = result.name
+    } catch (cause) {
+      registerError = cause instanceof Error ? cause.message : String(cause)
+    } finally {
+      registering = false
+      requestDraw()
     }
   }
 
@@ -844,6 +902,10 @@ export function attachSelectionScreen(
       finish({ code: 0, stdout: "", stderr: "" })
       return
     }
+    if (key.name === "a" && !registered) {
+      void registerNow()
+      return
+    }
     if (key.name === "i") {
       openDevice()
       return
@@ -1012,6 +1074,16 @@ function tick(state: "all" | "some" | "none") {
 
 function pair(key: string, label: string) {
   return st`${bold(fg(palette.accent)(key))} ${dim(label)}`
+}
+
+function registerNotice(serial: string, registering: boolean, error: string | null) {
+  if (registering) {
+    return st`${dim(`Registering Device ${serial}…`)}`
+  }
+  if (error) {
+    return st`${fg(palette.red)(`Register failed: ${error}`)} ${dim("- press")} ${bold(fg(palette.accent)("a"))} ${dim("to retry")}`
+  }
+  return st`${fg(palette.yellow)(`Device ${serial} is not registered - press `)}${bold(fg(palette.accent)("a"))}${fg(palette.yellow)(" to Register it")}`
 }
 
 function keyHelp() {

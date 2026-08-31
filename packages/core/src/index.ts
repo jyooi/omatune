@@ -4,13 +4,14 @@ export { ExitCode } from "./exit-code.ts"
 export type { ExitCode as ExitCodeValue } from "./exit-code.ts"
 export { listDeviceReports } from "./list-devices.ts"
 export {
-  adoptDevice,
+  defaultDeviceName,
   emptySelection,
   formatConfigIssue,
   loadConfigDir,
   loadSelection,
   parseConfigText,
   parseSelectionText,
+  registerDevice,
   resolveConfigDir,
   serializeSelection,
   starterConfigText,
@@ -31,7 +32,6 @@ export {
   starterConfigRefusal,
   unknownCommand,
   unknownDevice,
-  unknownDeviceOffer,
   unknownFamily,
   unknownForceModel,
 } from "./refusals.ts"

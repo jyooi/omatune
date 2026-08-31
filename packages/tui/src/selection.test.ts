@@ -98,6 +98,8 @@ async function mount(
     files?: ScannedFile[]
     unlisted?: ReadonlyArray<UnlistedFile>
     selection?: typeof startSelection
+    registered?: boolean
+    registerDevice?: () => Promise<{ serial: string; name: string }>
   } = {},
 ) {
   const clock = new ManualClock()
@@ -125,6 +127,8 @@ async function mount(
       writeSelection: async (selection) => {
         written.push(serializeSelection(selection))
       },
+      registered: overrides.registered,
+      registerDevice: overrides.registerDevice,
     },
     { clock },
   )
@@ -231,6 +235,47 @@ test("live plan summary updates after a tick", async () => {
   const after = view.captureCharFrame()
   expect(after).toContain("+3")
   expect(after).toContain("fits")
+  view.handle.dispose()
+  view.renderer.destroy()
+})
+
+test("an unregistered Device shows the Register notice", async () => {
+  const view = await mount(110, 32, {
+    registered: false,
+    registerDevice: async () => ({ serial: "000a27001395d5a3", name: "Classic 120GB" }),
+  })
+  const frame = view.captureCharFrame()
+  expect(frame).toContain("Device 000A27001395D5A3 is not registered - press a to Register it")
+  view.handle.dispose()
+  view.renderer.destroy()
+})
+
+test("a Register keypress writes config and clears the notice", async () => {
+  let calls = 0
+  const view = await mount(110, 32, {
+    registered: false,
+    registerDevice: async () => {
+      calls += 1
+      return { serial: "000a27001395d5a3", name: "Classic 120GB" }
+    },
+  })
+  view.mockInput.pressKey("a")
+  view.clock.advance(100)
+  await Promise.resolve()
+  await Promise.resolve()
+  await view.renderOnce()
+  expect(calls).toBe(1)
+  const frame = view.captureCharFrame()
+  expect(frame).not.toContain("is not registered")
+  expect(frame).toContain("rename it in config.toml")
+  view.handle.dispose()
+  view.renderer.destroy()
+})
+
+test("a registered Device shows no Register notice", async () => {
+  const view = await mount(110, 32, { registered: true })
+  const frame = view.captureCharFrame()
+  expect(frame).not.toContain("is not registered")
   view.handle.dispose()
   view.renderer.destroy()
 })

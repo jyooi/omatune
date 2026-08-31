@@ -5,6 +5,7 @@ import { Effect, type Layer } from "effect"
 import { parseArgv, type RunIo, type RunResult } from "./flags.ts"
 import { formatJson, formatTable } from "./format.ts"
 import { runPlan } from "./plan.ts"
+import { runRegister } from "./register.ts"
 import { runStatus } from "./status.ts"
 import { runSyncCommand } from "./sync.ts"
 
@@ -52,6 +53,10 @@ export async function runMain(
 
   if (parsed.subcommand === "status") {
     return runStatus(parsed, env)
+  }
+
+  if (parsed.subcommand === "register") {
+    return runRegister(parsed, platformLayer, env)
   }
 
   if (parsed.subcommand === "plan") {

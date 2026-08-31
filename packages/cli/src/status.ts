@@ -1,5 +1,4 @@
 import {
-  adoptDevice,
   ExitCode,
   formatConfigIssue,
   loadConfigDir,
@@ -7,7 +6,7 @@ import {
   needsDeviceFlag,
   resolveConfigDir,
   starterConfigRefusal,
-  unknownDeviceOffer,
+  unknownDevice,
 } from "@omatune/core"
 import type { Flags } from "./flags.ts"
 import type { RunResult } from "./main.ts"
@@ -39,14 +38,7 @@ export async function runStatus(
   const serial = flags.device.toLowerCase()
   const device = loaded.config.devices.find((entry) => entry.serial === serial)
   if (!device) {
-    if (!flags.yes) {
-      return refused(unknownDeviceOffer(flags.device))
-    }
-    const adopted = await adoptDevice(dir, serial)
-    if (!adopted.ok) {
-      return refused(formatConfigIssue(adopted.issue))
-    }
-    return statusOutput(adopted.value.serial, adopted.value.name, 0)
+    return refused(unknownDevice(flags.device))
   }
   const selection = await loadSelection(dir, serial)
   if (!selection.ok) {
