@@ -485,3 +485,32 @@ test("report after Sync without eject stays mounted until e", async () => {
   expect(view.finished[0]?.stdout).toContain(EJECTED_LINE)
   view.renderer.destroy()
 })
+
+test("eject failure shows the cause and lets the user retry", async () => {
+  let attempts = 0
+  const view = await mount(110, 32, {
+    fail: new SyncError({ message: SELECTION_EMPTY, code: 1 }),
+    eject: async () => {
+      attempts += 1
+      if (attempts === 1) {
+        throw new Error("Unmount denied.")
+      }
+    },
+  })
+  view.mockInput.pressEnter()
+  await settle(view)
+  view.mockInput.pressKey("e")
+  await settle(view)
+  const failed = view.captureCharFrame()
+  expect(failed).toContain(STILL_MOUNTED_LINE)
+  expect(failed).toContain("Eject failed: Unmount denied.")
+  expect(failed).toContain("press e to try again")
+  view.mockInput.pressKey("e")
+  await settle(view)
+  expect(attempts).toBe(2)
+  const ejected = view.captureCharFrame()
+  expect(ejected).toContain(EJECTED_LINE)
+  expect(ejected).not.toContain("Eject failed")
+  view.handle.dispose()
+  view.renderer.destroy()
+})
