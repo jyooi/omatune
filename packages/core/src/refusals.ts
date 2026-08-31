@@ -58,3 +58,11 @@ export function selectionDoesNotFit(needed: number, free: number): string {
 export function unknownCommand(command: string): string {
   return `Unknown command ${command}. Use devices, status, plan, or sync.`
 }
+
+export function malformedJson(kind: string): string {
+  return `Malformed ${kind} JSON. Delete the file and Sync again to rebuild it.`
+}
+
+export function unsupportedVersion(kind: string, version: number): string {
+  return `Unsupported ${kind} version ${version}. Delete the file and Sync again to rebuild it.`
+}

@@ -20,7 +20,7 @@ import {
   type SyncRequest,
 } from "@omatune/core"
 import { createCliRenderer, SystemClock, type CliRenderer, type CliRendererConfig } from "@opentui/core"
-import { Platform } from "@omatune/platform"
+import { ejectDevice, Platform } from "@omatune/platform"
 import { Effect, Stream, type Layer } from "effect"
 import { palette } from "./palette.ts"
 import { attachSelectionScreen } from "./selection-screen.ts"
@@ -133,8 +133,7 @@ export async function runTui(input: RunTuiInput): Promise<TuiResult> {
               await Effect.runPromise(
                 Effect.gen(function* () {
                   const platform = yield* Platform
-                  yield* platform.unmount(report.serial)
-                  yield* platform.powerOff(report.serial)
+                  yield* ejectDevice(platform, report.serial, false)
                 }).pipe(Effect.provide(input.layer)),
               )
             },

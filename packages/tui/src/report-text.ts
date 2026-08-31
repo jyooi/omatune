@@ -12,11 +12,16 @@ export function mountStateLine(ejected: boolean): string {
   return ejected ? EJECTED_LINE : STILL_MOUNTED_LINE
 }
 
+export function ejectFailedLine(cause: string): string {
+  return `Eject failed: ${cause} - press e to try again.`
+}
+
 export function reportLines(input: {
   readonly report: SyncReport | null
   readonly elapsedMs: number
   readonly exitReason: string | null
   readonly ejected: boolean
+  readonly ejectError?: string | null
   readonly skipped?: ReadonlyArray<{ readonly path: string; readonly reason: string }>
 }) {
   const lines = []
@@ -46,6 +51,9 @@ export function reportLines(input: {
     lines.push(st`${bold(fg(palette.green)(EJECTED_LINE))}`)
   } else {
     lines.push(st`${fg(palette.yellow)(STILL_MOUNTED_LINE)}`)
+    if (input.ejectError) {
+      lines.push(st`${fg(palette.red)(ejectFailedLine(input.ejectError))}`)
+    }
   }
   return lines
 }
@@ -55,6 +63,7 @@ export function reportStdout(input: {
   readonly elapsedMs: number
   readonly exitReason: string | null
   readonly ejected: boolean
+  readonly ejectError?: string | null
   readonly skipped?: ReadonlyArray<{ readonly path: string; readonly reason: string }>
 }): string {
   const lines: string[] = []
@@ -75,5 +84,8 @@ export function reportStdout(input: {
     lines.push(input.exitReason)
   }
   lines.push(mountStateLine(input.ejected))
+  if (!input.ejected && input.ejectError) {
+    lines.push(ejectFailedLine(input.ejectError))
+  }
   return `${lines.join("\n")}\n`
 }

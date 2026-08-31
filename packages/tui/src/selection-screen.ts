@@ -130,6 +130,7 @@ export function attachSelectionScreen(
   let report: SyncReport | null = null
   let deviceEjected = false
   let ejecting = false
+  let ejectError: string | null = null
   let exitReason: string | null = null
   let syncStartedAt = 0
   let syncEndedAt = 0
@@ -543,6 +544,7 @@ export function attachSelectionScreen(
       elapsedMs,
       exitReason,
       ejected: deviceEjected,
+      ejectError,
       skipped: livePlan?.skipped ?? [],
     })) {
       stripBody.add(new TextRenderable(renderer, { content: line }))
@@ -673,6 +675,7 @@ export function attachSelectionScreen(
     if (event.type === "report") {
       report = event
       deviceEjected = event.ejected
+      ejectError = null
       syncEndedAt = clock.now()
       mode = "report"
       finishCode = 0
@@ -689,11 +692,13 @@ export function attachSelectionScreen(
     try {
       await host.eject()
       deviceEjected = true
+      ejectError = null
       if (report) {
         report = { ...report, ejected: true }
       }
       requestDraw()
-    } catch {
+    } catch (cause) {
+      ejectError = toSyncError(cause).message
       requestDraw()
     } finally {
       ejecting = false
@@ -711,6 +716,7 @@ export function attachSelectionScreen(
     rate = null
     report = null
     deviceEjected = false
+    ejectError = null
     exitReason = null
     finishCode = 0
     syncStartedAt = clock.now()
@@ -885,6 +891,7 @@ export function attachSelectionScreen(
             elapsedMs,
             exitReason,
             ejected: deviceEjected,
+            ejectError,
             skipped: livePlan?.skipped ?? [],
           })
         : ""
