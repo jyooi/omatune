@@ -47,8 +47,20 @@ export {
   sha256File,
 } from "./plan.ts"
 export type { PlanKind, PlannedTrack, SyncPlan } from "./plan.ts"
-export { parseId3, readLameGapless, readTrackTags } from "./tags.ts"
-export type { Codec, Gapless, TrackTags } from "./tags.ts"
+export {
+  TRANSCODE_CEILING,
+  TRANSCODE_ROUTES,
+  TRANSCODE_SIZE_MARGIN,
+  deviceExtensionFor,
+  estimatedTranscodedSize,
+  isTranscodedExtension,
+  transcodeRouteFor,
+} from "./transcode-plan.ts"
+export type { TranscodeRoute } from "./transcode-plan.ts"
+export { materialiseAdd } from "./transcode-source.ts"
+export type { AddSource, MaterialiseInput } from "./transcode-source.ts"
+export { isFlac, parseId3, readFlacStreamInfo, readLameGapless, readTrackTags } from "./tags.ts"
+export type { Codec, FlacStreamInfo, Gapless, TrackTags } from "./tags.ts"
 export { wipeIpodControl } from "./device-fs.ts"
 export { ARTWORK_DIR, ARTWORKDB, artworkCacheDir, writeDeviceArtwork } from "./artwork.ts"
 export type { ArtworkSkip, ArtworkWriteResult } from "./artwork.ts"

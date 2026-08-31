@@ -17,6 +17,11 @@ export type LedgerEntry = {
   readonly writtenPlayCount?: number
   readonly writtenSkipCount?: number
   readonly writtenLastSkipped?: number
+  /* Set only when a Transcode wrote this Device file. `size` and `sha256`
+   * always describe the Library source, so the identity of the Track never
+   * depends on how it was encoded. */
+  readonly transcodedSize?: number
+  readonly transcodedSha256?: string
 }
 
 export type Ledger = {
@@ -51,6 +56,8 @@ const EntrySchema = Schema.Struct({
   writtenPlayCount: Schema.optional(Schema.Number),
   writtenSkipCount: Schema.optional(Schema.Number),
   writtenLastSkipped: Schema.optional(Schema.Number),
+  transcodedSize: Schema.optional(Schema.Number),
+  transcodedSha256: Schema.optional(Schema.String),
 })
 
 const LedgerSchema = Schema.Struct({

@@ -93,10 +93,22 @@ album_artist = "BJÖRK"
   await classicDevice(fake)
   const result = await plan(dir, fake)
   expect(result.code).toBe(0)
-  expect(result.json?.add).toHaveLength(9)
+  // Björk has five Tone Suite Tracks, four Dual Disc Tracks, and two
+  // Lossless Suite Tracks, and the FLAC pair transcodes.
+  expect(result.json?.add).toHaveLength(11)
   expect(result.json?.remove).toHaveLength(0)
   expect(result.json?.keep).toHaveLength(0)
   expect(result.json?.skipped).toHaveLength(0)
+  expect(result.json?.transcodeCount).toBe(2)
+  const transcoded = (result.json?.add ?? []).filter((track) => track.transcode)
+  expect(transcoded.map((track) => track.path).sort()).toEqual([
+    "lossless-suite/01-standard.flac",
+    "lossless-suite/02-hires.flac",
+  ])
+  for (const track of transcoded) {
+    expect(track.devicePath).toEndWith(".m4a")
+    expect(track.estimated).toBe(true)
+  }
 })
 
 test("album Rule selects Dual Disc across discs", async () => {
@@ -194,7 +206,7 @@ path = "tone-suite"
   await classicDevice(fake)
   const result = await plan(dir, fake)
   expect(result.code).toBe(0)
-  expect(result.json?.add).toHaveLength(4)
+  expect(result.json?.add).toHaveLength(6)
 })
 
 test("compilation Album groups under Various Artists", async () => {

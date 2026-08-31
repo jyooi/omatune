@@ -77,7 +77,7 @@ export function tracksForDatabase(
     out.push({
       libraryPath: entry.libraryPath,
       devicePath: entry.devicePath,
-      size: entry.size,
+      size: entry.transcodedSize ?? entry.size,
       dbid: BigInt(entry.dbid),
       selected,
       hasArtwork: artworkDbids.has(entry.dbid),

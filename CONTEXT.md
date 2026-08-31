@@ -33,6 +33,14 @@ _Avoid_: filter, query, pattern
 A mirror operation that makes the Device match the Selection exactly, deletions included.
 _Avoid_: push, copy, transfer, upload
 
+**Transcode**:
+Converting a Track during a Sync into a format the Device plays, with no loss the listener can avoid; the Library copy never changes.
+_Avoid_: convert, re-encode, rip
+
+**Transcode Cache**:
+The host-side store of finished Transcodes, reused across Syncs and Devices while the source Track is unchanged.
+_Avoid_: temp files, staging area, scratch
+
 **Device Database**:
 The `iTunesDB` and companion files on the Device that the stock firmware reads.
 _Avoid_: iTunes library, db, index

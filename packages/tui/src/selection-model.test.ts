@@ -141,11 +141,12 @@ test("mirror Album count includes only plan add and keep Tracks", () => {
   const mixed: ScannedFile[] = [
     file("Radiohead/Kid A/01 Everything In Its Right Place.mp3", 6_000_000, kida),
     {
-      relativePath: "Radiohead/Kid A/01 Everything In Its Right Place.flac",
+      // Vorbis stays Skipped, so the Album count must leave it out.
+      relativePath: "Radiohead/Kid A/01 Everything In Its Right Place.ogg",
       size: 30_000_000,
       mtimeMs: 1,
-      extension: "flac",
-      tags: { ...kida, title: "Everything FLAC" },
+      extension: "ogg",
+      tags: { ...kida, title: "Everything Vorbis" },
     },
   ]
   const artists = groupLibrary(mixed)

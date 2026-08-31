@@ -14,11 +14,14 @@ const DURATION_SECONDS = 2;
 const SAMPLE_RATE = 44100;
 const LAME_DELAY = 576;
 
-type ArtworkKey = "tone" | "field" | "dual";
+type ArtworkKey = "tone" | "field" | "dual" | "lossless";
 
 type TrackSpec = {
   path: string;
   codec: Codec;
+  /** Set only when the Track is not the default 44.1 kHz 16-bit. */
+  sampleRate?: number;
+  bitDepth?: number;
   title: string;
   artist: string;
   album: string;
@@ -226,12 +229,49 @@ const TRACKS: TrackSpec[] = [
     frequency: 659,
     gaplessRole: null,
   },
+  // FLAC joins the set so a Sync has a Transcode source to work on.
+  // One Track sits at the ceiling and one sits above it.
+  {
+    path: "library/lossless-suite/01-standard.flac",
+    codec: "flac",
+    title: "Standard",
+    artist: BJORK,
+    album: "Lossless Suite",
+    albumArtist: BJORK,
+    track: 1,
+    trackTotal: 2,
+    disc: 1,
+    discTotal: 1,
+    compilation: false,
+    artwork: "lossless",
+    frequency: 330,
+    gaplessRole: null,
+  },
+  {
+    path: "library/lossless-suite/02-hires.flac",
+    codec: "flac",
+    sampleRate: 96000,
+    bitDepth: 24,
+    title: "Hi-Res",
+    artist: BJORK,
+    album: "Lossless Suite",
+    albumArtist: BJORK,
+    track: 2,
+    trackTotal: 2,
+    disc: 1,
+    discTotal: 1,
+    compilation: false,
+    artwork: "lossless",
+    frequency: 262,
+    gaplessRole: null,
+  },
 ];
 
 const COVERS: Record<ArtworkKey, [number, number, number]> = {
   tone: [196, 30, 58],
   field: [46, 139, 87],
   dual: [30, 144, 255],
+  lossless: [218, 165, 32],
 };
 
 function main(): void {
@@ -247,6 +287,7 @@ function main(): void {
     tone: pngSolid(32, 32, COVERS.tone),
     field: pngSolid(32, 32, COVERS.field),
     dual: pngSolid(32, 32, COVERS.dual),
+    lossless: pngSolid(32, 32, COVERS.lossless),
   };
 
   const manifestTracks = [];
@@ -268,6 +309,8 @@ function main(): void {
     manifestTracks.push({
       path: spec.path,
       codec: spec.codec,
+      sampleRate: spec.sampleRate ?? SAMPLE_RATE,
+      bitDepth: spec.bitDepth ?? 16,
       title: spec.title,
       artist: spec.artist,
       album: spec.album,
@@ -313,6 +356,7 @@ function encodeTrack(
   outPath: string,
   artwork: Uint8Array | null,
 ): void {
+  const sampleRate = spec.sampleRate ?? SAMPLE_RATE;
   const args = [
     "-nostdin",
     "-hide_banner",
@@ -322,7 +366,7 @@ function encodeTrack(
     "-f",
     "lavfi",
     "-i",
-    `sine=frequency=${spec.frequency}:sample_rate=${SAMPLE_RATE}:duration=${DURATION_SECONDS}`,
+    `sine=frequency=${spec.frequency}:sample_rate=${sampleRate}:duration=${DURATION_SECONDS}`,
   ];
   const coverPath = join(tmpdir(), `omatune-cover-${process.pid}.png`);
   if (artwork) {
@@ -333,11 +377,16 @@ function encodeTrack(
   if (artwork) {
     args.push("-map", "1:v", "-c:v", "copy", "-disposition:v", "attached_pic");
   }
-  args.push("-ac", "1", "-ar", String(SAMPLE_RATE), "-flags", "+bitexact");
+  args.push("-ac", "1", "-ar", String(sampleRate), "-flags", "+bitexact");
   if (spec.codec === "mp3") {
     args.push("-c:a", "libmp3lame", "-b:a", "64k", "-id3v2_version", "4", "-write_id3v1", "0");
   } else if (spec.codec === "aac") {
     args.push("-c:a", "aac", "-b:a", "64k", "-f", "ipod");
+  } else if (spec.codec === "flac") {
+    if ((spec.bitDepth ?? 16) > 16) {
+      args.push("-sample_fmt", "s32", "-bits_per_raw_sample", String(spec.bitDepth));
+    }
+    args.push("-c:a", "flac");
   } else {
     args.push("-c:a", "alac", "-f", "ipod");
   }

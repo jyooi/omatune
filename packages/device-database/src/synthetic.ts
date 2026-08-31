@@ -4,6 +4,12 @@
  * The writer builds iTunesDB, ArtworkDB, and ithmb files.
  * Persistent ids come from a keyed hash of each Track path.
  * Artwork pixels are a flat colour plus album index.
+ *
+ * The Fixture holds only the Tracks a Sync copies unchanged. A Transcode
+ * source such as FLAC reaches a Device as a different file, at a different
+ * size, under a different name, so its Library bytes describe nothing the
+ * firmware would ever read. Modelling that here would need the Transcode
+ * engine, and this package stays free of it.
  */
 
 import { createHash, createHmac } from "node:crypto"
@@ -31,8 +37,13 @@ const FOLDER_COUNT = 50
 const FIRST_IMAGE_ID = 0x64
 const CLASSIC_FAMILY = "iPod classic 120 GB (2008)"
 
+/* Codecs the stock firmware cannot read, which a Sync transcodes on the way
+ * to the Device. See `deviceExtensionFor` in packages/core. */
+const TRANSCODE_SOURCE_CODECS = new Set(["flac"])
+
 export type ManifestTrack = {
   path: string
+  codec: string
   title: string
   artist: string
   album: string
@@ -102,6 +113,9 @@ async function loadTracks(audioRoot: string, manifest: Manifest): Promise<Synthe
     const entry = manifest.tracks[i]
     i += 1
     if (!entry) {
+      continue
+    }
+    if (TRANSCODE_SOURCE_CODECS.has(entry.codec)) {
       continue
     }
     const abs = join(audioRoot, entry.path)

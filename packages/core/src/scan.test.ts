@@ -15,9 +15,9 @@ const ALL: AppSelection = {
   exclude: [],
 }
 
-test("scanner reads mp3 and m4a tags from the Verification Library", async () => {
+test("scanner reads mp3, m4a, and flac tags from the Verification Library", async () => {
   const files = await scanLibrary(LIBRARY)
-  expect(files.length).toBe(12)
+  expect(files.length).toBe(14)
   const byPath = new Map(files.map((file) => [file.relativePath, file]))
   const mp3 = byPath.get("tone-suite/01-pregap.mp3")
   expect(mp3?.tags?.title).toBe("Pregap")
@@ -50,6 +50,20 @@ test("scanner reads mp3 and m4a tags from the Verification Library", async () =>
 
   const uncovered = byPath.get("tone-suite/05-uncovered.mp3")
   expect(uncovered?.tags?.artworkBytes).toBeNull()
+
+  // FLAC joined the supported set, so the scanner reads its Vorbis comments
+  // and its picture block.
+  const flac = byPath.get("lossless-suite/01-standard.flac")
+  expect(flac?.tags?.codec).toBe("flac")
+  expect(flac?.tags?.title).toBe("Standard")
+  expect(flac?.tags?.artist).toBe("Björk")
+  expect(flac?.tags?.albumArtist).toBe("Björk")
+  expect(flac?.tags?.album).toBe("Lossless Suite")
+  expect(flac?.tags?.track).toBe(1)
+  expect(flac?.tags?.trackTotal).toBe(2)
+  expect(flac?.tags?.artworkBytes?.length).toBeGreaterThan(0)
+  expect(flac?.tags?.artworkMime).toBe("image/png")
+  expect(flac?.tags?.durationSeconds).toBeCloseTo(2, 3)
 })
 
 test("disc number does not split an Album", async () => {

@@ -20,16 +20,22 @@ They contain no third-party recordings.
 
 ## Counts
 
-The Verification Library has 12 Tracks, 3 Albums, and 2 album artists.
-11 Tracks have Artwork.
+The Verification Library has 14 Tracks, 4 Albums, and 2 album artists.
+13 Tracks have Artwork.
 1 Track has no Artwork.
 One Album is MP3.
 One Album is AAC in m4a.
 One Album is ALAC in m4a.
+One Album is FLAC.
 
 One Album is a compilation under Various Artists.
 One Album is multi-disc.
 Two MP3 Tracks form a gapless pair with LAME delay, padding, and sample count.
+
+The FLAC Album is the Transcode source set.
+Track 1 sits at the Transcode ceiling and stays bit-perfect.
+Track 2 is 96 kHz 24-bit and comes down to the ceiling with dither.
+A Sync never copies a FLAC Track, so the synthetic Device Fixture leaves both out.
 
 ## Generate
 
@@ -47,6 +53,7 @@ The script sets ffmpeg bitexact flags.
 The script writes the LAME encoder string, delay, and padding.
 The script writes Artwork PNG bytes.
 AAC frames change across ffmpeg versions.
+FLAC frames do too.
 Commit a new generate run only to refresh the bytes.
 
 ## Manifest
@@ -57,5 +64,5 @@ Commit a new generate run only to refresh the bytes.
 `counts.albumArtists` is the album-artist count.
 `counts.tracksWithArtwork` is the Track count with Artwork.
 
-Each `tracks[]` entry states path, codec, title, artist, album, albumArtist, track numbers, disc numbers, compilation flag, Artwork flag, duration, and gapless fields when they apply.
+Each `tracks[]` entry states path, codec, sample rate, bit depth, title, artist, album, albumArtist, track numbers, disc numbers, compilation flag, Artwork flag, duration, and gapless fields when they apply.
 Tests read these values.

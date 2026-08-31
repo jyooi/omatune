@@ -6,6 +6,7 @@ import {
   type FamilyRecord,
 } from "@omatune/device-database"
 import { Platform, type PlatformApi } from "@omatune/platform"
+import { pruneTranscodeCache, transcodeCacheDir } from "@omatune/transcode"
 import { Context, Data, Effect, Layer, Stream } from "effect"
 import type { AppConfig } from "./config.ts"
 import { formatConfigIssue, loadConfigDir, loadSelection } from "./config.ts"
@@ -47,6 +48,7 @@ import {
 import { acquireSerialLock, releaseSerialLock } from "./lock.ts"
 import { reconcilePlanWithDevice } from "./resume-plan.ts"
 import { evaluateSelection, type SelectedTrack, type SkippedTrack } from "./rules.ts"
+import { materialiseAdd, type AddSource } from "./transcode-source.ts"
 import { scanLibrary } from "./scan.ts"
 import {
   artworkCacheDir,
@@ -477,9 +479,17 @@ async function runPipeline(
     }
     let copied = 0
     let bytesDone = 0
-    const bytesTotal = ctx.plan.bytesNeeded
+    /* The Plan budgets a Transcode by estimate. Each real size replaces its
+     * estimate here, so the progress total lands on the bytes actually
+     * written instead of drifting away from them. */
+    let bytesTotal = ctx.plan.bytesNeeded
     const presentAdds: PlannedTrack[] = []
     const extraSkipped: SkippedTrack[] = []
+    const transcoded = new Map<string, { size: number; sha256: string }>()
+    const cacheDir = transcodeCacheDir()
+    const selectedByPathForCopy = new Map(
+      ctx.selected.map((track) => [track.relativePath, track]),
+    )
     try {
       for (let i = 0; i < add.length; i += 1) {
         prefetch(i)
@@ -488,16 +498,48 @@ async function runPipeline(
           continue
         }
         await emitPhase(emit, "copy", bytesDone, bytesTotal, copied, add.length, track.path)
-        await ensureHash(track.path)
+        const hash = await ensureHash(track.path)
         if (diskFull) {
           extraSkipped.push({ path: track.path, reason: "disk_full" })
           continue
         }
+        const selected = selectedByPathForCopy.get(track.path)
+        let source: AddSource
+        try {
+          source = selected
+            ? await materialiseAdd({
+                libraryRoot: ctx.config.library,
+                track: selected,
+                sourceSha256: hash,
+                cacheDir,
+              })
+            : {
+                path: join(ctx.config.library, track.path),
+                size: track.size,
+                transcodedSha256: null,
+                cached: false,
+              }
+        } catch (cause) {
+          /* A Track the engine refuses is Skipped with a reason, the same way
+           * an unreadable tag is. One bad Track never stops the Sync. */
+          extraSkipped.push({ path: track.path, reason: "transcode_failed" })
+          await emit({
+            type: "message",
+            text: `${track.path}: ${cause instanceof Error ? cause.message : String(cause)}`,
+            level: "warning",
+          })
+          bytesTotal -= track.size
+          continue
+        }
+        if (source.transcodedSha256) {
+          transcoded.set(track.path, { size: source.size, sha256: source.transcodedSha256 })
+        }
+        bytesTotal += source.size - track.size
         const live = await deviceFreeBytes(platform, ctx.serial)
         const placed = await placeAdd({
-          source: join(ctx.config.library, track.path),
+          source: source.path,
           dest: join(ctx.mountPoint, track.devicePath),
-          size: track.size,
+          size: source.size,
           resume,
           spaceRemaining,
           liveFreeBytes: live === null ? null : Math.max(0, live - dbReserve),
@@ -508,9 +550,9 @@ async function runPipeline(
           continue
         }
         spaceRemaining = placed.spaceRemaining
-        presentAdds.push(track)
+        presentAdds.push({ ...track, size: source.size, estimated: false })
         copied += 1
-        bytesDone += track.size
+        bytesDone += source.size
         await yieldFiber()
       }
     } finally {
@@ -521,7 +563,7 @@ async function runPipeline(
     await emitPhase(emit, "copy", bytesDone, bytesTotal, copied, add.length, null)
 
     const now = await Effect.runPromise(platform.now)
-    const nextLedger = buildNextLedger(ctx, hashes, now, readBack.playData, presentAdds)
+    const nextLedger = buildNextLedger(ctx, hashes, now, readBack.playData, presentAdds, transcoded)
     await emitPhase(emit, "artwork", 0, 0, 0, 0, null)
     const liveAfterCopy = await deviceFreeBytes(platform, ctx.serial)
     const artworkBudget =
@@ -567,6 +609,10 @@ async function runPipeline(
     await deleteDeviceFile(ctx.mountPoint, SYNCING_MARKER)
     await emitPhase(emit, "database", 1, 1, 1, 1, null)
   }
+
+  /* Every Sync prunes the Transcode Cache once, after the Device work is
+   * done, so a slow prune never delays the Commit point. */
+  await pruneTranscodeCache(transcodeCacheDir())
 
   const ejected = !request.noEject
   if (ejected) {
@@ -649,6 +695,7 @@ function buildNextLedger(
   now: number,
   playData: PlayDataFile,
   presentAdds: ReadonlyArray<PlannedTrack>,
+  transcoded: ReadonlyMap<string, { size: number; sha256: string }>,
 ): Ledger {
   const selectedByPath = new Map(ctx.selected.map((track) => [track.relativePath, track]))
   const priorByPath = new Map((ctx.ledger?.tracks ?? []).map((entry) => [entry.libraryPath, entry]))
@@ -665,6 +712,12 @@ function buildNextLedger(
     const prior = priorByPath.get(planned.path)
     const sha256 = hashes.get(planned.path) ?? prior?.sha256 ?? ""
     const host = playData.tracks[sha256]
+    /* A kept Transcode carries its numbers forward, because a keep never
+     * re-runs the engine. */
+    const transcode = transcoded.get(planned.path) ??
+      (prior?.transcodedSize !== undefined && prior.transcodedSha256 !== undefined
+        ? { size: prior.transcodedSize, sha256: prior.transcodedSha256 }
+        : undefined)
     tracks.push({
       libraryPath: planned.path,
       size: selected.size,
@@ -679,6 +732,9 @@ function buildNextLedger(
       writtenPlayCount: host?.playCount ?? 0,
       writtenSkipCount: host?.skipCount ?? 0,
       writtenLastSkipped: host?.lastSkipped ?? 0,
+      ...(transcode
+        ? { transcodedSize: transcode.size, transcodedSha256: transcode.sha256 }
+        : {}),
     })
   }
   return {
