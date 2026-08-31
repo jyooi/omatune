@@ -66,11 +66,13 @@ The v1 spec is https://linear.app/huffman/document/omatune-v1-spec-fb07aaa33fe0.
 | iPod shuffle 1G to 4G | M9724 onward | SHUFFLE_* | Unsupported | - | iTunesSD plus iTunesStats second database format |
 <!-- render:support-table:end -->
 
-## From source
+## Development
 
 This repo needs bun 1.4.0.
 
 Install dependencies with `bun install`.
+
+Run the CLI from source with `bun run omatune`.
 
 Run tests with `bun test`.
 
@@ -81,7 +83,7 @@ Build every package with `bun run build`.
 Open the Selection screen:
 
 ```
-bun run omatune
+omatune
 ```
 
 Set `--device` when two or more Devices connect.
@@ -94,32 +96,32 @@ Press `i` to open the Device screen.
 List attached Devices:
 
 ```
-bun run omatune devices
+omatune devices
 ```
 
 Print the same facts as JSON objects, one object per line:
 
 ```
-bun run omatune devices --json
+omatune devices --json
 ```
 
 Print Selection Rule count and Ledger summary for one Device:
 
 ```
-bun run omatune status --device <serial>
+omatune status --device <serial>
 ```
 
 Print a Sync Plan for one Device.
 Nothing on the Device changes:
 
 ```
-bun run omatune plan --device <serial> --json
+omatune plan --device <serial> --json
 ```
 
 Run a Sync for one Device:
 
 ```
-bun run omatune sync --device <serial>
+omatune sync --device <serial>
 ```
 
 The command asks `Sync now? [y/N]`.
