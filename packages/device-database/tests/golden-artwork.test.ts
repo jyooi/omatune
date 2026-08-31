@@ -50,6 +50,41 @@ describe("S2 golden ArtworkDB", () => {
 
   test.skipIf(skip)(
     skip
+      ? "gives every image a distinct per-format ithmb offset (skipped: no Fixture is present)"
+      : "gives every image a distinct per-format ithmb offset",
+    async () => {
+      for (const fixture of cases) {
+        const bytes = await Bun.file(artworkdbPath(fixture.dir)).bytes();
+        const db = parseArtworkdb(bytes);
+        const images = imageItems(db);
+        expect(images.length).toBeGreaterThan(1);
+        const offsetsByFormat = new Map<number, number[]>();
+        for (const image of images) {
+          for (const thumb of thumbnailsOf(image)) {
+            const list = offsetsByFormat.get(thumb.formatId) ?? [];
+            list.push(thumb.offset);
+            offsetsByFormat.set(thumb.formatId, list);
+          }
+        }
+        for (const [formatId, offsets] of offsetsByFormat) {
+          expect(new Set(offsets).size).toBe(offsets.length);
+          const format = artworkFormatRow(family, formatId);
+          if (!format) {
+            throw new Error(`missing format row for ${formatId}`);
+          }
+          const ithmbPath = join(fixture.dir, "Artwork", `F${formatId}_1.ithmb`);
+          const ithmb = await Bun.file(ithmbPath).bytes();
+          for (const offset of offsets) {
+            expect(offset).toBeGreaterThanOrEqual(0);
+            expect(offset + format.blockBytes).toBeLessThanOrEqual(ithmb.byteLength);
+          }
+        }
+      }
+    },
+  );
+
+  test.skipIf(skip)(
+    skip
       ? "extracts an RGB565 thumbnail from a Fixture ithmb file (skipped: no Fixture is present)"
       : "extracts an RGB565 thumbnail from a Fixture ithmb file",
     async () => {
