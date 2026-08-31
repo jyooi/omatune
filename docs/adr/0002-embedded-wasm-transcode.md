@@ -21,4 +21,4 @@ We compile a FLAC decoder, an ALAC encoder, and a resampler with dithering to We
 
 - The build gains a WASM compilation step for the codec modules, pinned and reproducible, with the compiled artifacts embedded by `bun build --compile`.
 - Transcode output must be deterministic per (source bytes, parameters, module version), because the Transcode Cache and the Ledger record it.
-- Lossy sources (Opus, Vorbis) stay Skipped: this ADR covers lossless-to-lossless only, and a lossy path would need its own honest story.
+- Lossy sources (Opus, Vorbis) stay Unlisted: this ADR covers lossless-to-lossless only, and a lossy path would need its own honest story.
