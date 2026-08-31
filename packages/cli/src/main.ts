@@ -1,4 +1,4 @@
-import { ExitCode, listDeviceReports } from "@omatune/core"
+import { ExitCode, listDeviceReports, unknownCommand } from "@omatune/core"
 import { fakeLayer, linuxLayer, stubLayer, type Platform } from "@omatune/platform"
 import { runTui } from "@omatune/tui"
 import { Effect, type Layer } from "effect"
@@ -63,7 +63,7 @@ export async function runMain(
   }
 
   if (parsed.subcommand !== "devices") {
-    return refused(`Unknown command ${parsed.subcommand}.`)
+    return refused(unknownCommand(parsed.subcommand))
   }
 
   const program = listDeviceReports.pipe(

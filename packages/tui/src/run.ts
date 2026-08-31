@@ -1,13 +1,17 @@
 import {
   ExitCode,
+  deviceNotAttached,
   formatConfigIssue,
   listDeviceReports,
   loadConfigDir,
   loadLedger,
   loadSelection,
+  NO_DEVICE_ATTACHED,
+  PASS_DEVICE_OR_ATTACH_ONE,
   resolveConfigDir,
   resolveDataDir,
   scanLibrary,
+  starterConfigRefusal,
   Sync,
   SyncLive,
   writeSelection,
@@ -16,7 +20,7 @@ import {
   type SyncRequest,
 } from "@omatune/core"
 import { createCliRenderer, SystemClock, type CliRenderer, type CliRendererConfig } from "@opentui/core"
-import type { Platform } from "@omatune/platform"
+import { Platform } from "@omatune/platform"
 import { Effect, Stream, type Layer } from "effect"
 import { palette } from "./palette.ts"
 import { attachSelectionScreen } from "./selection-screen.ts"
@@ -50,22 +54,23 @@ export async function runTui(input: RunTuiInput): Promise<TuiResult> {
   })
   const loaded = await loadConfigDir(dir)
   if (loaded.kind === "created") {
-    return refused(`Wrote starter config ${loaded.path}. Set library and run again.`)
+    return refused(starterConfigRefusal(loaded.path))
   }
   if (loaded.kind === "issue") {
     return refused(formatConfigIssue(loaded.issue))
   }
   const reports = await Effect.runPromise(listDeviceReports.pipe(Effect.provide(input.layer)))
-  const wanted = input.device ? input.device.toLowerCase() : null
+  const device = input.device
+  const wanted = device ? device.toLowerCase() : null
   const report = pickReport(reports, wanted)
   if (!report) {
-    if (wanted) {
-      return refused(`Device ${input.device} is not attached.`)
+    if (device) {
+      return refused(deviceNotAttached(device))
     }
     if (reports.length === 0) {
-      return refused("No Device attached.")
+      return refused(NO_DEVICE_ATTACHED)
     }
-    return refused("Pass --device or attach one Device.")
+    return refused(PASS_DEVICE_OR_ATTACH_ONE)
   }
   const named = loaded.config.devices.find((entry) => entry.serial === report.serial)
   const selectionResult = await loadSelection(dir, report.serial)
@@ -124,6 +129,15 @@ export async function runTui(input: RunTuiInput): Promise<TuiResult> {
             noEject: input.noEject === true,
             strict: input.strict === true,
             forceModel: input.forceModel ?? null,
+            eject: async () => {
+              await Effect.runPromise(
+                Effect.gen(function* () {
+                  const platform = yield* Platform
+                  yield* platform.unmount(report.serial)
+                  yield* platform.powerOff(report.serial)
+                }).pipe(Effect.provide(input.layer)),
+              )
+            },
           },
           {
             clock,

@@ -4,7 +4,10 @@ import {
   formatConfigIssue,
   loadConfigDir,
   loadSelection,
+  needsDeviceFlag,
   resolveConfigDir,
+  starterConfigRefusal,
+  unknownDeviceOffer,
 } from "@omatune/core"
 import type { Flags } from "./flags.ts"
 import type { RunResult } from "./main.ts"
@@ -18,7 +21,7 @@ export async function runStatus(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<RunResult> {
   if (!flags.device) {
-    return refused("status needs --device.")
+    return refused(needsDeviceFlag("status"))
   }
   const dir = resolveConfigDir({
     xdgConfigHome: env.XDG_CONFIG_HOME,
@@ -28,7 +31,7 @@ export async function runStatus(
   })
   const loaded = await loadConfigDir(dir)
   if (loaded.kind === "created") {
-    return refused(`Wrote starter config ${loaded.path}. Set library and run again.`)
+    return refused(starterConfigRefusal(loaded.path))
   }
   if (loaded.kind === "issue") {
     return refused(formatConfigIssue(loaded.issue))
@@ -37,7 +40,7 @@ export async function runStatus(
   const device = loaded.config.devices.find((entry) => entry.serial === serial)
   if (!device) {
     if (!flags.yes) {
-      return refused(`Unknown Device ${flags.device}. Use --yes to add it to config.toml.`)
+      return refused(unknownDeviceOffer(flags.device))
     }
     const adopted = await adoptDevice(dir, serial)
     if (!adopted.ok) {

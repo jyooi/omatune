@@ -52,7 +52,7 @@ export function parseArgv(argv: ReadonlyArray<string>): Flags | ParseFailure {
       const inline = eq === -1 ? undefined : arg.slice(eq + 1)
       if (BOOL_FLAGS.has(name)) {
         if (inline !== undefined) {
-          return { message: `Flag ${name} does not take a value.` }
+          return { message: `Flag ${name} does not take a value. Pass ${name} with no value.` }
         }
         if (name === "--json") flags.json = true
         if (name === "--yes") flags.yes = true
@@ -64,7 +64,7 @@ export function parseArgv(argv: ReadonlyArray<string>): Flags | ParseFailure {
       if (VALUE_FLAGS.has(name)) {
         const value = inline ?? argv[i + 1]
         if (!value || value.startsWith("--")) {
-          return { message: `Flag ${name} needs a value.` }
+          return { message: `Flag ${name} needs a value. Pass ${name} VALUE.` }
         }
         if (name === "--device") flags.device = value
         if (name === "--force-model") flags.forceModel = value
@@ -72,14 +72,14 @@ export function parseArgv(argv: ReadonlyArray<string>): Flags | ParseFailure {
         i += inline !== undefined ? 1 : 2
         continue
       }
-      return { message: `Unknown flag ${name}.` }
+      return { message: `Unknown flag ${name}. Remove it.` }
     }
     if (flags.subcommand === null) {
       flags.subcommand = arg
       i += 1
       continue
     }
-    return { message: `Unexpected argument ${arg}.` }
+    return { message: `Unexpected argument ${arg}. Remove it.` }
   }
 
   return flags

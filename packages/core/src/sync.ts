@@ -10,6 +10,17 @@ import { pruneTranscodeCache, transcodeCacheDir } from "@omatune/transcode"
 import { Context, Data, Effect, Layer, Stream } from "effect"
 import type { AppConfig } from "./config.ts"
 import { formatConfigIssue, loadConfigDir, loadSelection } from "./config.ts"
+import {
+  DEVICE_FULL,
+  SELECTION_EMPTY,
+  SKIPPED_STRICT,
+  deviceNotAttached,
+  deviceNotMounted,
+  starterConfigRefusal,
+  unknownDevice,
+  unknownFamily,
+  unknownForceModel,
+} from "./refusals.ts"
 import { toDeviceReport, type DeviceReport } from "./device-report.ts"
 import { adoptLedger } from "./adopt.ts"
 import { placeAdd } from "./copy-adds.ts"
@@ -192,7 +203,7 @@ async function executeLocked(
   await emit({ type: "plan", plan: prepared.plan })
   if (request.strict && prepared.plan.skipped.length > 0) {
     throw new SyncError({
-      message: "Skipped Tracks in --strict mode.",
+      message: SKIPPED_STRICT,
       code: ExitCode.RefusedBeforeChange,
     })
   }
@@ -222,7 +233,7 @@ async function prepareSync(
   const loaded = await loadConfigDir(request.configDir)
   if (loaded.kind === "created") {
     throw new SyncError({
-      message: `Wrote starter config ${loaded.path}. Set library and run again.`,
+      message: starterConfigRefusal(loaded.path),
       code: ExitCode.RefusedBeforeChange,
     })
   }
@@ -235,7 +246,7 @@ async function prepareSync(
   const device = loaded.config.devices.find((entry) => entry.serial === serial)
   if (!device) {
     throw new SyncError({
-      message: `Unknown Device ${request.serial}.`,
+      message: unknownDevice(request.serial),
       code: ExitCode.RefusedBeforeChange,
     })
   }
@@ -248,7 +259,7 @@ async function prepareSync(
   }
   if (selection.value.include.length === 0) {
     throw new SyncError({
-      message: "Selection is empty.",
+      message: SELECTION_EMPTY,
       code: ExitCode.RefusedBeforeChange,
     })
   }
@@ -256,7 +267,7 @@ async function prepareSync(
   let info = attached.find((entry) => entry.serial === serial)
   if (!info) {
     throw new SyncError({
-      message: `Device ${request.serial} is not attached.`,
+      message: deviceNotAttached(request.serial),
       code: ExitCode.RefusedBeforeChange,
     })
   }
@@ -267,7 +278,7 @@ async function prepareSync(
   }
   if (!info || info.mountPoint === null) {
     throw new SyncError({
-      message: `Device ${request.serial} is not mounted.`,
+      message: deviceNotMounted(request.serial),
       code: ExitCode.RefusedBeforeChange,
     })
   }
@@ -275,7 +286,7 @@ async function prepareSync(
   const forced = request.forceModel ? resolveForceModel(request.forceModel) : undefined
   if (request.forceModel && !forced) {
     throw new SyncError({
-      message: `Unknown --force-model key ${request.forceModel}.`,
+      message: unknownForceModel(request.forceModel),
       code: ExitCode.RefusedBeforeChange,
     })
   }
@@ -283,18 +294,14 @@ async function prepareSync(
   const tier = family?.supportTier ?? report.supportTier
   const familyName = family?.family ?? report.family
   if (!forced && (tier === "Unsupported" || tier === null || familyName === null || !family)) {
-    const reason =
-      familyName === null || tier === null
-        ? "Unknown Device family."
-        : `Device family ${familyName} is Unsupported.`
     throw new SyncError({
-      message: `${reason} See docs/support-table.md.`,
+      message: unknownFamily(familyName === null || tier === null ? null : familyName),
       code: ExitCode.RefusedBeforeChange,
     })
   }
   if (!family) {
     throw new SyncError({
-      message: "Unknown Device family. See docs/support-table.md.",
+      message: unknownFamily(null),
       code: ExitCode.RefusedBeforeChange,
     })
   }
@@ -629,7 +636,7 @@ async function runPipeline(
   })
   if (diskFull) {
     throw new SyncError({
-      message: "Device is full.",
+      message: DEVICE_FULL,
       code: ExitCode.StoppedAfterChange,
     })
   }

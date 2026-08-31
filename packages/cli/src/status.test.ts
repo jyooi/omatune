@@ -49,10 +49,24 @@ test("first run writes a starter config and exits 1", async () => {
   expect(result.code).toBe(1)
   const path = join(dir, "config.toml")
   expect(result.stderr).toContain(path)
+  expect(result.stderr).toContain("library is not set")
+  expect(result.stderr).toContain("Uncomment line 3")
+  expect(result.stderr).not.toContain("Missing library")
   const text = await Bun.file(path).text()
   expect(text).toContain("version = 1")
   expect(text).toContain("# library =")
   expect(text.includes("\nlibrary =")).toBe(false)
+})
+
+test("config without library names the cause and the fix", async () => {
+  const dir = await makeDir("omatune-missing-library-")
+  await writeFile(join(dir, "config.toml"), "version = 1\n")
+  const result = await status(dir)
+  expect(result.code).toBe(1)
+  expect(result.stderr).toContain("config.toml:")
+  expect(result.stderr).toContain("library is not set")
+  expect(result.stderr).toContain('library = "/home/you/Music"')
+  expect(result.stderr).not.toContain("Missing library")
 })
 
 test("newer version exits 1 with file, line, and reason", async () => {

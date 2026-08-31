@@ -96,7 +96,7 @@ test("devices --json with no Devices prints nothing and exits 0", async () => {
 test("sync without --device is refused before change", async () => {
   const result = await runMain(["sync"])
   expect(result.code).toBe(1)
-  expect(result.stderr).toContain("sync needs --device")
+  expect(result.stderr).toContain("sync needs --device. Pass --device SERIAL.")
 })
 
 test("bare command refuses when config is missing", async () => {
@@ -106,4 +106,6 @@ test("bare command refuses when config is missing", async () => {
   const result = await runMain([], stubLayer, env)
   expect(result.code).toBe(1)
   expect(result.stderr).toContain("Wrote starter config")
+  expect(result.stderr).toContain("library is not set")
+  expect(result.stderr).toContain("Uncomment line 3")
 })

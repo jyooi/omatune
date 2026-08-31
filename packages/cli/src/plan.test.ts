@@ -236,7 +236,7 @@ test("empty Selection exits 1", async () => {
   await classicDevice(fake)
   const result = await plan(dir, fake)
   expect(result.code).toBe(1)
-  expect(result.stderr).toContain("Selection is empty")
+  expect(result.stderr).toContain("Selection is empty - tick Tracks with Space first.")
 })
 
 test("Selection that does not fit exits 1", async () => {

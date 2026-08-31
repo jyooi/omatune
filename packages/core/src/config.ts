@@ -2,6 +2,7 @@ import { access, constants, mkdir, readdir, stat } from "node:fs/promises"
 import { isAbsolute, join } from "node:path"
 import { Either, ParseResult, Schema } from "effect"
 import { parse, TomlError } from "smol-toml"
+import { LIBRARY_NOT_SET } from "./refusals.ts"
 
 const PARSE_OPTIONS = { onExcessProperty: "error" as const, errors: "all" as const }
 
@@ -74,6 +75,9 @@ const SelectionSchema = Schema.Struct({
 })
 
 export function formatConfigIssue(issue: ConfigIssue): string {
+  if (issue.reason === "Missing library.") {
+    return `${issue.file}: ${LIBRARY_NOT_SET}`
+  }
   return `${issue.file}:${issue.line}: ${issue.reason}`
 }
 
@@ -197,7 +201,7 @@ export async function loadConfigDir(dir: string): Promise<LoadConfigResult> {
       issue: {
         file,
         line: lineOfKey(text, "library"),
-        reason: "Library root is not readable.",
+        reason: "Library root is not readable. Point library at a folder you can read.",
       },
     }
   }

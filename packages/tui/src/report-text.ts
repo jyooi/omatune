@@ -5,10 +5,18 @@ import { skipReasonText } from "./plan-text.ts"
 import { formatClock } from "./progress.ts"
 import { st } from "./styled.ts"
 
+export const EJECTED_LINE = "Ejected - safe to unplug."
+export const STILL_MOUNTED_LINE = "Still mounted - the iPod shows no music until it is ejected."
+
+export function mountStateLine(ejected: boolean): string {
+  return ejected ? EJECTED_LINE : STILL_MOUNTED_LINE
+}
+
 export function reportLines(input: {
   readonly report: SyncReport | null
   readonly elapsedMs: number
   readonly exitReason: string | null
+  readonly ejected: boolean
   readonly skipped?: ReadonlyArray<{ readonly path: string; readonly reason: string }>
 }) {
   const lines = []
@@ -33,10 +41,11 @@ export function reportLines(input: {
   }
   if (input.exitReason) {
     lines.push(st`${fg(palette.red)(input.exitReason)}`)
-  } else if (input.report?.ejected) {
-    lines.push(st`${bold(fg(palette.green)("Safe to unplug"))}`)
+  }
+  if (input.ejected) {
+    lines.push(st`${bold(fg(palette.green)(EJECTED_LINE))}`)
   } else {
-    lines.push(st`${dim("Device left mounted")}`)
+    lines.push(st`${fg(palette.yellow)(STILL_MOUNTED_LINE)}`)
   }
   return lines
 }
@@ -45,6 +54,7 @@ export function reportStdout(input: {
   readonly report: SyncReport | null
   readonly elapsedMs: number
   readonly exitReason: string | null
+  readonly ejected: boolean
   readonly skipped?: ReadonlyArray<{ readonly path: string; readonly reason: string }>
 }): string {
   const lines: string[] = []
@@ -63,8 +73,7 @@ export function reportStdout(input: {
   lines.push(`Elapsed: ${formatClock(input.elapsedMs / 1000)}`)
   if (input.exitReason) {
     lines.push(input.exitReason)
-  } else if (input.report?.ejected) {
-    lines.push("Safe to unplug")
   }
+  lines.push(mountStateLine(input.ejected))
   return `${lines.join("\n")}\n`
 }
