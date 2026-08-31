@@ -63,12 +63,10 @@ test("the estimate adds the safety margin to the source size", () => {
   expect(estimatedTranscodedSize(0)).toBe(0)
 })
 
-test("FLAC is no longer Skipped and other formats still are", () => {
+test("FLAC is no longer Skipped and routes through the transcoder", () => {
   const files = [
     file("Björk/Lossless Suite/01.flac", "flac", 10_000),
     file("Björk/Lossless Suite/02.mp3", "mp3", 5_000),
-    file("Björk/Lossless Suite/03.ogg", "ogg", 4_000),
-    file("Björk/Lossless Suite/04.opus", "opus", 3_000),
   ]
   const { selected, skipped } = evaluateSelection(files, SELECTION)
   expect(selected.map((track) => track.relativePath)).toEqual([
@@ -77,10 +75,7 @@ test("FLAC is no longer Skipped and other formats still are", () => {
   ])
   expect(selected.find((track) => track.extension === "flac")?.transcode).toBe(true)
   expect(selected.find((track) => track.extension === "mp3")?.transcode).toBe(false)
-  expect(skipped).toEqual([
-    { path: "Björk/Lossless Suite/03.ogg", reason: "unsupported_format" },
-    { path: "Björk/Lossless Suite/04.opus", reason: "unsupported_format" },
-  ])
+  expect(skipped).toEqual([])
 })
 
 test("a transcoded add takes an m4a Device path built from the source hash", () => {

@@ -140,14 +140,8 @@ test("plan summary reports add remove bytes and fit", () => {
 test("mirror Album count includes only plan add and keep Tracks", () => {
   const mixed: ScannedFile[] = [
     file("Radiohead/Kid A/01 Everything In Its Right Place.mp3", 6_000_000, kida),
-    {
-      // Vorbis stays Skipped, so the Album count must leave it out.
-      relativePath: "Radiohead/Kid A/01 Everything In Its Right Place.ogg",
-      size: 30_000_000,
-      mtimeMs: 1,
-      extension: "ogg",
-      tags: { ...kida, title: "Everything Vorbis" },
-    },
+    // An unstorable name stays Skipped, so the Album count must leave it out.
+    file("Radiohead/Kid A/CON.mp3", 6_000_000, { ...kida, title: "Everything Reserved" }),
   ]
   const artists = groupLibrary(mixed)
   const selection = toggleArtist(emptySelection(), "Radiohead", "none")
