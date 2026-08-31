@@ -52,7 +52,7 @@ export function buildItunesdb(tracks: ReadonlyArray<ItunesdbTrack>): Itunesdb {
   const mhits = tracks.map((track, index) => mhitOf(track, index + 1))
   const trackSection = mhsdOf(1, mhltOf(mhits))
   const playlistSection = mhsdOf(2, playlistList(tracks))
-  const podcastSection = mhsdOf(3, playlistList(tracks))
+  const podcastSection = mhsdOf(3, podcastPlaylistList())
   return { chunk: mhbdOf([trackSection, playlistSection, podcastSection]) }
 }
 
@@ -65,7 +65,7 @@ export function itunesdbReserveBytes(trackCount: number): number {
   const mhod = MHOD_HEADER + MHOD_BODY_PREFIX + STRING_UTF16_BYTES
   const fixed =
     MHBD_HEADER + 3 * MHSD_HEADER + MHLT_HEADER + 2 * (MHLP_HEADER + MHYP_HEADER + mhod)
-  const perTrack = MHIT_HEADER + 2 * MHIP_HEADER + 5 * mhod
+  const perTrack = MHIT_HEADER + MHIP_HEADER + 5 * mhod
   return roundUp(fixed, RESERVE_ALIGN) + roundUp(perTrack, RESERVE_ALIGN) * count
 }
 
@@ -132,18 +132,22 @@ function mhlpOf(playlists: Chunk[]): Chunk {
 
 function playlistList(tracks: ReadonlyArray<ItunesdbTrack>): Chunk {
   const items = tracks.map((_track, index) => mhipOf(index + 1))
-  return mhlpOf([mhypOf("Library", items)])
+  return mhlpOf([mhypOf("Library", items, 1n)])
 }
 
-function mhypOf(name: string, items: Chunk[]): Chunk {
+function podcastPlaylistList(): Chunk {
+  return mhlpOf([mhypOf("Podcasts", [], 2n)])
+}
+
+function mhypOf(name: string, items: Chunk[], persistentId: bigint): Chunk {
   const header = new Uint8Array(MHYP_HEADER)
   writeFourCc(header, 0, "mhyp")
   writeU32(header, 12, 1)
   writeU32(header, 16, items.length)
-  /* This is the Library, the one playlist the firmware builds its Music,
-   * Artists, and Albums menus from. */
+  /* This is the master playlist for its section, the one the firmware
+   * builds the section's menus from. */
   header[MHYP_MASTER_FLAG] = 1
-  writeU64(header, MHYP_PERSISTENT_ID, 1n)
+  writeU64(header, MHYP_PERSISTENT_ID, persistentId)
   writeU16(header, MHYP_STRING_MHOD_COUNT, 1)
   return {
     id: "mhyp",
