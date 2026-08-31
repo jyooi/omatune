@@ -7,6 +7,7 @@ import {
   MHIT_TYPE_2,
   MHIT_UNKNOWN_D0,
   MHYP_MASTER_FLAG,
+  MHYP_PERSISTENT_ID,
   MHYP_STRING_MHOD_COUNT,
   fileTypeCodeFor,
   formatBytesFor,
@@ -49,10 +50,10 @@ export type ItunesdbTrack = {
 
 export function buildItunesdb(tracks: ReadonlyArray<ItunesdbTrack>): Itunesdb {
   const mhits = tracks.map((track, index) => mhitOf(track, index + 1))
-  const items = tracks.map((track, index) => mhipOf(index + 1))
   const trackSection = mhsdOf(1, mhltOf(mhits))
-  const playlistSection = mhsdOf(2, mhlpOf([mhypOf("Library", items)]))
-  return { chunk: mhbdOf([trackSection, playlistSection]) }
+  const playlistSection = mhsdOf(2, playlistList(tracks))
+  const podcastSection = mhsdOf(3, playlistList(tracks))
+  return { chunk: mhbdOf([trackSection, playlistSection, podcastSection]) }
 }
 
 export function serializeSignedLayout(tracks: ReadonlyArray<ItunesdbTrack>): Uint8Array {
@@ -63,8 +64,8 @@ export function itunesdbReserveBytes(trackCount: number): number {
   const count = Math.max(0, Math.floor(trackCount))
   const mhod = MHOD_HEADER + MHOD_BODY_PREFIX + STRING_UTF16_BYTES
   const fixed =
-    MHBD_HEADER + 2 * MHSD_HEADER + MHLT_HEADER + MHLP_HEADER + MHYP_HEADER + mhod
-  const perTrack = MHIT_HEADER + MHIP_HEADER + 5 * mhod
+    MHBD_HEADER + 3 * MHSD_HEADER + MHLT_HEADER + 2 * (MHLP_HEADER + MHYP_HEADER + mhod)
+  const perTrack = MHIT_HEADER + 2 * MHIP_HEADER + 5 * mhod
   return roundUp(fixed, RESERVE_ALIGN) + roundUp(perTrack, RESERVE_ALIGN) * count
 }
 
@@ -129,6 +130,11 @@ function mhlpOf(playlists: Chunk[]): Chunk {
   return { id: "mhlp", header, children: playlists, body: empty(), padding: empty() }
 }
 
+function playlistList(tracks: ReadonlyArray<ItunesdbTrack>): Chunk {
+  const items = tracks.map((_track, index) => mhipOf(index + 1))
+  return mhlpOf([mhypOf("Library", items)])
+}
+
 function mhypOf(name: string, items: Chunk[]): Chunk {
   const header = new Uint8Array(MHYP_HEADER)
   writeFourCc(header, 0, "mhyp")
@@ -137,6 +143,7 @@ function mhypOf(name: string, items: Chunk[]): Chunk {
   /* This is the Library, the one playlist the firmware builds its Music,
    * Artists, and Albums menus from. */
   header[MHYP_MASTER_FLAG] = 1
+  writeU64(header, MHYP_PERSISTENT_ID, 1n)
   writeU16(header, MHYP_STRING_MHOD_COUNT, 1)
   return {
     id: "mhyp",

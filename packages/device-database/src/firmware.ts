@@ -14,9 +14,15 @@
  * Restoring that one field alone brought the whole Library back.
  */
 
-import { readU16, readU32 } from "./bytes.ts"
+import { readU16, readU32, readU64 } from "./bytes.ts"
 import type { Chunk } from "./chunk.ts"
-import { mhsdType, type Itunesdb } from "./codec.ts"
+import {
+  HASH58_OFFSET,
+  HASH72_LENGTH,
+  HASH72_OFFSET,
+  mhsdType,
+  type Itunesdb,
+} from "./codec.ts"
 
 /** Media type. iTunes writes 1 on every audio Track. Zero hides the Library. */
 export const MHIT_MEDIA_TYPE = 0xcc
@@ -32,13 +38,18 @@ export const MHIT_GAPLESS_TRACK_FLAG = 0x100
 export const MHIT_GAPLESS_ALBUM_FLAG = 0x102
 /** Master flag. The firmware builds its Music menus from the master playlist. */
 export const MHYP_MASTER_FLAG = 0x14
+/** Persistent id. iTunes writes a non-zero id on the master playlist. */
+export const MHYP_PERSISTENT_ID = 0x1c
 /** Count of string mhods in a playlist. iTunes writes 1 on every playlist. */
 export const MHYP_STRING_MHOD_COUNT = 0x28
 /** Child mhod count, held at the same offset in mhit, mhyp, and mhip. */
 export const MHOD_COUNT = 12
 
 const MHSD_TRACKS = 1
-const PLAYLIST_MHSD_TYPES = new Set([2, 3])
+const MHSD_PLAYLISTS = 2
+const MHSD_PODCASTS = 3
+const REQUIRED_MHSD_TYPES = [MHSD_TRACKS, MHSD_PLAYLISTS, MHSD_PODCASTS]
+const PLAYLIST_MHSD_TYPES = new Set([MHSD_PLAYLISTS, MHSD_PODCASTS])
 
 export type FirmwareProblem = {
   /** Short stable name, so a test can name the rule that failed. */
@@ -54,6 +65,8 @@ export type FirmwareProblem = {
  */
 export function firmwareProblems(db: Itunesdb): FirmwareProblem[] {
   const problems: FirmwareProblem[] = []
+  checkHashSlots(db, problems)
+  checkSections(db, problems)
   for (const [index, mhit] of tracksIn(db).entries()) {
     checkTrack(mhit, `mhit ${index}`, problems)
   }
@@ -155,6 +168,13 @@ function checkPlaylists(db: Itunesdb, problems: FirmwareProblem[]): void {
         const where = `mhyp ${index}`
         if (byteAt(playlist.header, MHYP_MASTER_FLAG) === 1) {
           masters += 1
+          if (u64(playlist.header, MHYP_PERSISTENT_ID) === 0n) {
+            problems.push({
+              rule: "master-playlist-id",
+              where,
+              detail: `master playlist persistent id at 0x${MHYP_PERSISTENT_ID.toString(16)} is 0; iTunes writes a non-zero id`,
+            })
+          }
         }
         if (u16(playlist.header, MHYP_STRING_MHOD_COUNT) === 0) {
           problems.push({
@@ -178,6 +198,36 @@ function checkPlaylists(db: Itunesdb, problems: FirmwareProblem[]): void {
         })
       }
     }
+  }
+}
+
+function checkSections(db: Itunesdb, problems: FirmwareProblem[]): void {
+  const present = new Set<number>()
+  for (const section of db.chunk.children) {
+    if (section.id === "mhsd") {
+      present.add(mhsdType(section))
+    }
+  }
+  for (const type of REQUIRED_MHSD_TYPES) {
+    if (!present.has(type)) {
+      problems.push({
+        rule: "section-types",
+        where: "mhbd",
+        detail: `missing mhsd type ${type}; the firmware reads section types 1, 2, and 3`,
+      })
+    }
+  }
+}
+
+function checkHashSlots(db: Itunesdb, problems: FirmwareProblem[]): void {
+  const length = db.chunk.header.byteLength
+  const needed = HASH72_OFFSET + HASH72_LENGTH
+  if (length < needed) {
+    problems.push({
+      rule: "hash-slots",
+      where: "mhbd",
+      detail: `mhbd header is ${length} bytes and does not hold hash slots at 0x${HASH58_OFFSET.toString(16)} and 0x${HASH72_OFFSET.toString(16)}`,
+    })
   }
 }
 
@@ -229,6 +279,13 @@ function u32(header: Uint8Array, offset: number): number {
     return 0
   }
   return readU32(header, offset)
+}
+
+function u64(header: Uint8Array, offset: number): bigint {
+  if (header.byteLength < offset + 8) {
+    return 0n
+  }
+  return readU64(header, offset)
 }
 
 function fourCc(header: Uint8Array, offset: number): string {

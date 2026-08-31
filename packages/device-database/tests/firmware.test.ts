@@ -7,14 +7,17 @@
 
 import { describe, expect, test } from "bun:test";
 import {
+  HASH72_OFFSET,
   MHIT_GAPLESS_ALBUM_FLAG,
   MHIT_MEDIA_TYPE,
   MHYP_MASTER_FLAG,
+  MHYP_PERSISTENT_ID,
   buildSyntheticItunesdb,
   fileTypeCodeFor,
   firmwareProblems,
   firmwareReadable,
   formatBytesFor,
+  mhsdType,
   parseItunesdb,
   serializeItunesdb,
   type SyntheticTrack,
@@ -108,6 +111,34 @@ describe("firmware rules", () => {
       }
     }
     expect(rulesFired(serializeItunesdb(db))).toEqual(["mhod-count"]);
+  });
+
+  test("a database without section type 3 is reported", () => {
+    const db = database();
+    db.chunk.children = db.chunk.children.filter(
+      (section) => section.id !== "mhsd" || mhsdType(section) !== 3,
+    );
+    expect(rulesFired(serializeItunesdb(db))).toEqual(["section-types"]);
+  });
+
+  test("a master playlist with a zero persistent id is reported", () => {
+    const db = database();
+    for (const section of db.chunk.children) {
+      for (const list of section.children) {
+        for (const playlist of list.children) {
+          if (playlist.id === "mhyp") {
+            playlist.header.fill(0, MHYP_PERSISTENT_ID, MHYP_PERSISTENT_ID + 8);
+          }
+        }
+      }
+    }
+    expect(rulesFired(serializeItunesdb(db))).toEqual(["master-playlist-id"]);
+  });
+
+  test("a truncated mhbd header is reported as a hash slot problem", () => {
+    const db = database();
+    db.chunk.header = db.chunk.header.slice(0, HASH72_OFFSET);
+    expect([...new Set(firmwareProblems(db).map((problem) => problem.rule))]).toEqual(["hash-slots"]);
   });
 
   test("the file type code follows the Device file extension", () => {

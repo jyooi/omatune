@@ -29,6 +29,7 @@ import {
   MHIT_TYPE_2,
   MHIT_UNKNOWN_D0,
   MHYP_MASTER_FLAG,
+  MHYP_PERSISTENT_ID,
   MHYP_STRING_MHOD_COUNT,
   fileTypeCodeFor,
   formatBytesFor,
@@ -107,10 +108,10 @@ export async function writeSyntheticFixture(
 
 export function buildSyntheticItunesdb(tracks: readonly SyntheticTrack[]): Itunesdb {
   const mhits = tracks.map((track, index) => mhitOf(track, index + 1))
-  const items = tracks.map((_track, index) => mhipOf(index + 1))
   const trackSection = mhsdOf(1, mhltOf(mhits))
-  const playlistSection = mhsdOf(2, mhlpOf([mhypOf("Library", items)]))
-  return { chunk: mhbdOf([trackSection, playlistSection]) }
+  const playlistSection = mhsdOf(2, playlistList(tracks))
+  const podcastSection = mhsdOf(3, playlistList(tracks))
+  return { chunk: mhbdOf([trackSection, playlistSection, podcastSection]) }
 }
 
 export function dbidForPath(path: string): bigint {
@@ -383,12 +384,18 @@ function mhlpOf(playlists: Chunk[]): Chunk {
   return { id: "mhlp", header, children: playlists, body: empty(), padding: empty() }
 }
 
+function playlistList(tracks: readonly SyntheticTrack[]): Chunk {
+  const items = tracks.map((_track, index) => mhipOf(index + 1))
+  return mhlpOf([mhypOf("Library", items)])
+}
+
 function mhypOf(name: string, items: Chunk[]): Chunk {
   const header = new Uint8Array(MHYP_HEADER)
   writeFourCc(header, 0, "mhyp")
   writeU32(header, 12, 1)
   writeU32(header, 16, items.length)
   header[MHYP_MASTER_FLAG] = 1
+  writeU64(header, MHYP_PERSISTENT_ID, 1n)
   writeU16(header, MHYP_STRING_MHOD_COUNT, 1)
   return {
     id: "mhyp",
