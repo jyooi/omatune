@@ -59,6 +59,26 @@ test("m4a without iTunSMPB has no gapless data", () => {
   expect(tags.gapless).toBeNull()
 })
 
+test("FLAC STREAMINFO past 2^32 samples reports the full duration", () => {
+  const bytes = new Uint8Array(42)
+  bytes[0] = 0x66
+  bytes[1] = 0x4c
+  bytes[2] = 0x61
+  bytes[3] = 0x43
+  bytes[4] = 0x80
+  bytes[7] = 34
+  bytes[18] = 0x0a
+  bytes[19] = 0xc4
+  bytes[20] = 0x42
+  bytes[21] = 0xf1
+  bytes[22] = 0x00
+  bytes[23] = 0x00
+  bytes[24] = 0xac
+  bytes[25] = 0x44
+  const tags = readTrackTags(bytes)
+  expect(tags.durationSeconds).toBe((4294967296 + 44100) / 44100)
+})
+
 function insertId3Frame(bytes: Uint8Array, id: string, body: Uint8Array): Uint8Array {
   const version = bytes[3] ?? 0
   const frame = new Uint8Array(10 + body.length)

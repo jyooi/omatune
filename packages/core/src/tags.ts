@@ -74,8 +74,8 @@ export function readFlacStreamInfo(bytes: Uint8Array): FlacStreamInfo | null {
     const high = (data[13] ?? 0) & 0xf;
     const totalSamples =
       high * 4294967296 +
-      (((data[14] ?? 0) << 24) | ((data[15] ?? 0) << 16) | ((data[16] ?? 0) << 8) | (data[17] ?? 0)) >>>
-        0;
+      ((((data[14] ?? 0) << 24) | ((data[15] ?? 0) << 16) | ((data[16] ?? 0) << 8) | (data[17] ?? 0)) >>>
+        0);
     return { sampleRate, channels, bitsPerSample, totalSamples };
   }
   return null;

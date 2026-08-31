@@ -24,6 +24,7 @@ export async function reconcilePlanWithDevice(
     keep,
     bytesNeeded,
     freeSpaceAfter: plan.freeSpaceAfter + plan.bytesNeeded - bytesNeeded,
+    transcodeCount: add.filter((track) => track.transcode).length,
   }
 }
 
