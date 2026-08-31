@@ -13,6 +13,8 @@ WebAssembly at all.
 | Resampler and dither | `../../wasm/src/resample.c` | this repository | the repository license |
 | Glue | `../../wasm/src/transcode.cpp` | this repository | the repository license |
 
+The full license texts for libFLAC and Apple ALAC are in `THIRD-PARTY-LICENSES` at the repository root.
+
 Only the decoder half of libFLAC and the encoder half of Apple ALAC are
 compiled. The FLAC encoder, the Ogg layer, the metadata iterators, the SIMD
 variants, and the ALAC decoder all stay out, which is most of why the module

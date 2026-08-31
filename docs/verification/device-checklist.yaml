@@ -16,9 +16,10 @@ items:
     pass: Every artist and Album appears once under the album artist, Tracks in disc and track order
     not_applicable_for: []
   - id: DC-04
-    step: Play one mp3, one AAC m4a, one ALAC m4a to the end
+    step: Play one mp3, one AAC m4a, one ALAC m4a, and one transcoded Track to the end
     pass: No skip or error; now-playing shows tagged title, artist, Album, duration
     not_applicable_for: []
+    notes: The transcoded Track is from the FLAC Album lossless-suite in the Verification Library
   - id: DC-05
     step: Now-playing on a Track with Artwork and on the one without
     pass: Artwork on the first, placeholder on the second; Cover Flow matches

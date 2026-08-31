@@ -159,3 +159,11 @@ A Sync copies failed Play Counts files to `read-back-failed/` in that directory.
 `packages/tui` holds the Selection screen, Sync Plan, Sync progress, report, and Device screen.
 
 `Platform` is the only hardware seam.
+
+## License
+
+The project license is MIT.
+The full text is in `LICENSE`.
+
+Compiled copies of libFLAC and Apple ALAC are in the Transcode wasm module and in every binary.
+The full license texts are in `THIRD-PARTY-LICENSES`.
