@@ -240,7 +240,7 @@ path = "Radiohead/bonus"
   expect(result.stdout).toContain("Ledger: empty")
 })
 
-test("unknown Device prints offer text without --yes", async () => {
+test("unknown Device points at omatune register", async () => {
   const dir = await makeDir("omatune-unknown-device-")
   await writeConfig(
     dir,
@@ -251,12 +251,12 @@ library = "LIBRARY"
   const result = await status(dir)
   expect(result.code).toBe(1)
   expect(result.stderr).toContain("Unknown Device")
-  expect(result.stderr).toContain("--yes")
+  expect(result.stderr).toContain(`omatune register --device ${SERIAL}`)
   expect(await Bun.file(join(dir, "devices", SERIAL, "selection.toml")).exists()).toBe(false)
 })
 
-test("--yes appends an unknown Device and creates empty selection.toml", async () => {
-  const dir = await makeDir("omatune-adopt-")
+test("status --yes does not mutate config.toml", async () => {
+  const dir = await makeDir("omatune-status-readonly-")
   await writeConfig(
     dir,
     `version = 1
@@ -264,17 +264,13 @@ test("--yes appends an unknown Device and creates empty selection.toml", async (
 library = "LIBRARY"
 `,
   )
+  const before = await Bun.file(join(dir, "config.toml")).text()
   const result = await status(dir, ["--yes"])
-  expect(result.code).toBe(0)
-  expect(result.stdout).toContain("Rules: 0")
-  expect(result.stdout).toContain("Ledger: empty")
-  const config = await Bun.file(join(dir, "config.toml")).text()
-  expect(config).toContain("# keep this comment")
-  expect(config).toContain(`[devices."${SERIAL}"]`)
-  expect(config).toContain(`name = "${SERIAL}"`)
-  const selection = await Bun.file(join(dir, "devices", SERIAL, "selection.toml")).text()
-  expect(selection).toContain("version = 1")
-  expect(selection).not.toContain("[[include]]")
+  expect(result.code).toBe(1)
+  expect(result.stderr).toContain("Unknown Device")
+  const after = await Bun.file(join(dir, "config.toml")).text()
+  expect(after).toBe(before)
+  expect(await Bun.file(join(dir, "devices", SERIAL, "selection.toml")).exists()).toBe(false)
 })
 
 test("--config overrides XDG_CONFIG_HOME", async () => {

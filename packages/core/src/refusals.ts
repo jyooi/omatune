@@ -21,11 +21,7 @@ export function needsDeviceFlag(command: string): string {
 }
 
 export function unknownDevice(serial: string): string {
-  return `Unknown Device ${serial}. Add it with status --device ${serial} --yes.`
-}
-
-export function unknownDeviceOffer(serial: string): string {
-  return `Unknown Device ${serial}. Use --yes to add it to config.toml.`
+  return `Unknown Device ${serial}. Register it with omatune register --device ${serial}.`
 }
 
 export function deviceNotAttached(serial: string): string {
@@ -56,7 +52,7 @@ export function selectionDoesNotFit(needed: number, free: number): string {
 }
 
 export function unknownCommand(command: string): string {
-  return `Unknown command ${command}. Use devices, status, plan, or sync.`
+  return `Unknown command ${command}. Use devices, status, register, plan, or sync.`
 }
 
 export function malformedJson(kind: string): string {

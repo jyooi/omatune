@@ -87,6 +87,7 @@ omatune
 ```
 
 Set `--device` when two or more Devices connect.
+An unregistered Device shows a notice; press `a` to Register it before Syncing.
 Press Enter to review the Sync Plan in the bottom strip.
 Confirm with `y`, or type `wipe` for a wipe.
 The Sync screen shows one progress bar.
@@ -106,10 +107,20 @@ Print the same facts as JSON objects, one object per line:
 omatune devices --json
 ```
 
-Print Selection Rule count and Ledger summary for one Device:
+Print Selection Rule count and Ledger summary for one Device.
+`status` is read-only and refuses an unregistered Device:
 
 ```
 omatune status --device <serial>
+```
+
+Register a Device: add it to config.toml so a Sync will accept it.
+Changes nothing on the Device.
+The default name is family plus size, such as Classic 120GB, or the serial when the family is unknown.
+Rename the Device by editing `name` under `[devices.<serial>]` in config.toml:
+
+```
+omatune register --device <serial>
 ```
 
 Print a Sync Plan for one Device.

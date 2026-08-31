@@ -235,18 +235,36 @@ export async function writeSelection(
   await Bun.write(file, serializeSelection(selection))
 }
 
-export async function adoptDevice(
+export async function registerDevice(
   dir: string,
   serial: string,
+  name: string,
 ): Promise<Outcome<DeviceRecord>> {
   const id = serial.toLowerCase()
   const file = join(dir, "config.toml")
   const current = await Bun.file(file).text()
   const suffix = current.endsWith("\n") ? "" : "\n"
-  const block = `${suffix}\n[devices.${tomlKey(id)}]\nname = ${tomlString(id)}\n`
+  const block = `${suffix}\n[devices.${tomlKey(id)}]\nname = ${tomlString(name)}\n`
   await Bun.write(file, current + block)
   await writeSelection(dir, id, emptySelection())
-  return { ok: true, value: { serial: id, name: id } }
+  return { ok: true, value: { serial: id, name } }
+}
+
+/* Family strings read "iPod classic 120 GB (2008)"; the default name drops
+ * the "iPod" prefix and the year, and tightens "120 GB" to "120GB". */
+export function defaultDeviceName(family: string | null, serial: string): string {
+  if (!family) {
+    return serial
+  }
+  const trimmed = family
+    .replace(/^iPod\s+/i, "")
+    .replace(/\s*\([^)]*\)\s*$/, "")
+    .trim()
+  if (trimmed.length === 0) {
+    return serial
+  }
+  const capitalised = trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
+  return capitalised.replace(/(\d)\s+(GB|MB)\b/gi, (_match, num: string, unit: string) => `${num}${unit.toUpperCase()}`)
 }
 
 function selectionPath(dir: string, serial: string): string {

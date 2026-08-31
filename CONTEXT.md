@@ -87,6 +87,10 @@ _Avoid_: transaction, checkpoint
 A Sync that rebuilds a missing Ledger from a Device omatune wrote earlier, instead of wiping it.
 _Avoid_: import, recovery, re-sync
 
+**Register**:
+Adding a Device to host configuration so a Sync will accept it; changes nothing on the Device.
+_Avoid_: adopt (that is Adoption's Ledger meaning), add, pair
+
 **Skipped**:
 A Track the Selection matches that a Sync leaves off the Device, with a stated reason.
 _Avoid_: error, failed, ignored
