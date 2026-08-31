@@ -91,6 +91,7 @@ Press Enter to review the Sync Plan in the bottom strip.
 Confirm with `y`, or type `wipe` for a wipe.
 The Sync screen shows one progress bar.
 The report prints to stdout after the screen closes.
+Press `e` on the report screen to eject a still-mounted Device.
 Press `i` to open the Device screen.
 
 List attached Devices:
@@ -131,7 +132,7 @@ A wipe asks `Wipe and Sync?` and needs the word wipe.
 `--json` prints the plan, messages, one progress object per line, and the report.
 `--no-eject` leaves the Device mounted.
 `--strict` refuses the Sync when Skipped Tracks exist or Play Counts is corrupt.
-Success prints `Safe to unplug` after unmount.
+The report always states mount state: `Ejected - safe to unplug.` on success, `Still mounted - the iPod shows no music until it is ejected.` otherwise.
 
 omatune reads `$XDG_CONFIG_HOME/omatune/config.toml`.
 `--config` sets the config directory.
