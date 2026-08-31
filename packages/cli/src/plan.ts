@@ -87,7 +87,7 @@ export async function runPlan(
   if (!ledgerResult.ok) {
     return refused(`${ledgerResult.issue.file}:${ledgerResult.issue.line}: ${ledgerResult.issue.reason}`)
   }
-  const files = await scanLibrary(loaded.config.library)
+  const { files, unlisted } = await scanLibrary(loaded.config.library)
   const { selected, skipped } = evaluateSelection(files, selection.value)
   const hashes = await hashesForAdds(loaded.config.library, selected, ledgerResult.value)
   const kind = planKind({ ownerState: report.ownerState, hasLedger: ledgerResult.value !== null })
@@ -104,13 +104,14 @@ export async function runPlan(
     freeBytes: report.freeSpaceBytes,
     forceModel: flags.forceModel,
     playCountsPending,
+    unlisted,
   })
   if (plan.freeSpaceAfter < 0) {
     return refused(
       selectionDoesNotFit(plan.bytesNeeded, report.freeSpaceBytes),
     )
   }
-  const stdout = flags.json ? formatPlanJson(plan) : formatPlanText(plan)
+  const stdout = flags.json ? formatPlanJson(plan) : formatPlanText(plan, flags.unlisted)
   if (flags.strict && plan.skipped.length > 0) {
     return { code: ExitCode.RefusedBeforeChange, stdout, stderr: `${SKIPPED_STRICT}\n` }
   }

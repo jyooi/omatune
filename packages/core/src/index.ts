@@ -53,8 +53,18 @@ export {
   pathMatches,
 } from "./rules.ts"
 export type { SelectedTrack, SkipReason, SkippedTrack } from "./rules.ts"
-export { scanLibrary, extensionOf, isAudioExtension, isSupportedExtension } from "./scan.ts"
-export type { ScannedFile } from "./scan.ts"
+export {
+  canAppearAsTrack,
+  extensionOf,
+  isCompanionPath,
+  isSupportedExtension,
+  scanLibrary,
+  UNLISTED_MISSING_TAGS,
+  UNLISTED_RENAME_ALAC,
+  UNLISTED_UNREADABLE,
+  unsupportedFormatReason,
+} from "./scan.ts"
+export type { LibraryScan, ScannedFile, UnlistedFile } from "./scan.ts"
 export {
   artworkHashOf,
   buildPlan,

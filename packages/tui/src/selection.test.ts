@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test"
-import { emptySelection, serializeSelection, type Ledger, type ScannedFile, type TrackTags } from "@omatune/core"
+import {
+  emptySelection,
+  serializeSelection,
+  type Ledger,
+  type ScannedFile,
+  type TrackTags,
+  type UnlistedFile,
+} from "@omatune/core"
 import { ManualClock, createTestRenderer } from "@opentui/core/testing"
 import { attachSelectionScreen } from "./selection-screen.ts"
 
@@ -89,6 +96,7 @@ async function mount(
   overrides: {
     libraryRoot?: string
     files?: ScannedFile[]
+    unlisted?: ReadonlyArray<UnlistedFile>
     selection?: typeof startSelection
   } = {},
 ) {
@@ -111,6 +119,7 @@ async function mount(
       freeBytes: 24_300_000_000,
       tracksOnDevice: 1,
       files: overrides.files ?? files,
+      unlisted: overrides.unlisted ?? [],
       selection: overrides.selection ?? startSelection,
       ledger,
       writeSelection: async (selection) => {
@@ -362,4 +371,31 @@ test("empty Selection collapses the Rules box", async () => {
   expect(frame).not.toContain("path =")
   handle.dispose()
   setup.renderer.destroy()
+})
+
+test("Unlisted rows render with a reason and a header count", async () => {
+  const view = await mount(110, 32, {
+    unlisted: [
+      { relativePath: "song.alac", reason: "rename .alac to .m4a" },
+      { relativePath: "bare.m4a", reason: "missing artist/album tags" },
+    ],
+  })
+  const frame = view.captureCharFrame()
+  expect(frame).toContain("Unlisted: 2")
+  expect(frame).toContain("song.alac")
+  expect(frame).toContain("rename .alac to .m4a")
+  expect(frame).toContain("bare.m4a")
+  expect(frame).toContain("missing artist/album tags")
+  for (let i = 0; i < 6; i += 1) {
+    view.mockInput.pressKey("j")
+    view.clock.advance(100)
+    await view.renderOnce()
+  }
+  view.mockInput.pressKey(" ")
+  view.clock.advance(100)
+  await view.handle.flush()
+  await view.renderOnce()
+  expect(view.written).toEqual([])
+  view.handle.dispose()
+  view.renderer.destroy()
 })

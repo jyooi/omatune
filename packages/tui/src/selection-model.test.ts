@@ -193,3 +193,16 @@ test("tree rows are Artist then Album", () => {
     "album",
   ])
 })
+
+test("Unlisted rows sit dimmed at the end of the Library tree", () => {
+  const artists = groupLibrary(files)
+  const rows = flattenTree(artists, new Set(), new Set(), [
+    { relativePath: "song.alac", reason: "rename .alac to .m4a" },
+    { relativePath: "bare.m4a", reason: "missing artist/album tags" },
+  ])
+  const tail = rows.slice(-2)
+  expect(tail).toEqual([
+    { kind: "unlisted", path: "song.alac", reason: "rename .alac to .m4a" },
+    { kind: "unlisted", path: "bare.m4a", reason: "missing artist/album tags" },
+  ])
+})

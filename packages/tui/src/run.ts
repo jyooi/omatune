@@ -81,7 +81,7 @@ export async function runTui(input: RunTuiInput): Promise<TuiResult> {
   if (!ledgerResult.ok) {
     return refused(`${ledgerResult.issue.file}:${ledgerResult.issue.line}: ${ledgerResult.issue.reason}`)
   }
-  const files = await scanLibrary(loaded.config.library)
+  const { files, unlisted } = await scanLibrary(loaded.config.library)
   const dataDir = resolveDataDir({
     xdgDataHome: env.XDG_DATA_HOME,
     home: env.HOME,
@@ -115,6 +115,7 @@ export async function runTui(input: RunTuiInput): Promise<TuiResult> {
             freeBytes: report.freeSpaceBytes,
             tracksOnDevice: ledgerResult.value?.tracks.length ?? 0,
             files,
+            unlisted,
             selection: selectionResult.value,
             ledger: ledgerResult.value,
             writeSelection: (next: AppSelection) => writeSelection(dir, report.serial, next),

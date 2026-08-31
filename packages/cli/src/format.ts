@@ -33,13 +33,14 @@ export function formatPlanJson(plan: SyncPlan): string {
   return `${JSON.stringify(plan)}\n`
 }
 
-export function formatPlanText(plan: SyncPlan): string {
+export function formatPlanText(plan: SyncPlan, listUnlisted = false): string {
   const lines = [
     `Kind: ${plan.kind}`,
     `Add: ${plan.add.length}`,
     `Remove: ${plan.remove.length}`,
     `Keep: ${plan.keep.length}`,
     `Skipped: ${plan.skipped.length}`,
+    `Unlisted: ${plan.unlisted.length}`,
     `Bytes needed: ${formatBytes(plan.bytesNeeded)}`,
     `Free space after: ${formatBytes(plan.freeSpaceAfter)}`,
     `Play Counts pending: ${plan.playCountsPending}`,
@@ -53,6 +54,11 @@ export function formatPlanText(plan: SyncPlan): string {
   }
   for (const skip of plan.skipped) {
     lines.push(`Skip ${skip.path}: ${skip.reason}`)
+  }
+  if (listUnlisted) {
+    for (const file of plan.unlisted) {
+      lines.push(`Unlisted ${file.relativePath}: ${file.reason}`)
+    }
   }
   return `${lines.join("\n")}\n`
 }

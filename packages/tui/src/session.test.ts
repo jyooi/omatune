@@ -113,6 +113,7 @@ function makePlan(kind: SyncPlan["kind"] = "normal"): SyncPlan {
     forceModel: null,
     playCountsPending: 0,
     transcodeCount: 0,
+    unlisted: [],
   }
 }
 

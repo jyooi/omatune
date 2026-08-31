@@ -17,6 +17,11 @@ _Avoid_: iPod (in code), target, player
 One audio file in the Library, identified by its tags.
 _Avoid_: song, file
 
+**Unlisted**:
+A file under the Library that looks intended for the Device but cannot appear as a Track, always with a stated reason.
+Companion files are not Unlisted.
+_Avoid_: hidden, ignored, invalid, skipped
+
 **Album**:
 A group of Tracks that share album and album-artist tags.
 

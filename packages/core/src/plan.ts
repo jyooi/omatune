@@ -5,6 +5,7 @@ import type { FamilyRecord } from "@omatune/device-database"
 import type { OwnerState } from "./device-report.ts"
 import type { Ledger, LedgerEntry } from "./ledger.ts"
 import type { SelectedTrack, SkippedTrack } from "./rules.ts"
+import type { UnlistedFile } from "./scan.ts"
 import { deviceExtensionFor, estimatedTranscodedSize } from "./transcode-plan.ts"
 
 export type PlanKind = "normal" | "wipe" | "adoption"
@@ -31,6 +32,7 @@ export type SyncPlan = {
   readonly playCountsPending: number
   /** Adds that a Transcode produces, counted for the Plan summary. */
   readonly transcodeCount: number
+  readonly unlisted: ReadonlyArray<UnlistedFile>
 }
 
 const FOLDER_COUNT = 50
@@ -125,6 +127,7 @@ export function buildPlan(input: {
   readonly freeBytes: number
   readonly forceModel: string | null
   readonly playCountsPending?: number
+  readonly unlisted?: ReadonlyArray<UnlistedFile>
 }): SyncPlan {
   const ledgerTracks = input.ledger?.tracks ?? []
   const ledgerByPath = new Map<string, LedgerEntry>()
@@ -193,6 +196,7 @@ export function buildPlan(input: {
     forceModel: input.forceModel,
     playCountsPending: input.playCountsPending ?? 0,
     transcodeCount: add.filter((track) => track.transcode).length,
+    unlisted: input.unlisted ?? [],
   }
 }
 

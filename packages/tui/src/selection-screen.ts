@@ -16,6 +16,7 @@ import {
   type AppSelection,
   type Ledger,
   type ScannedFile,
+  type UnlistedFile,
   type SyncEvent,
   type SyncPlan,
   type SyncProgress,
@@ -67,6 +68,7 @@ export type SelectionHost = {
   readonly freeBytes: number
   readonly tracksOnDevice: number
   readonly files: ReadonlyArray<ScannedFile>
+  readonly unlisted?: ReadonlyArray<UnlistedFile>
   readonly selection: AppSelection
   readonly ledger: Ledger | null
   readonly writeSelection: (selection: AppSelection) => Promise<void>
@@ -186,7 +188,7 @@ export function attachSelectionScreen(
     minHeight: 0,
     borderStyle: "single",
     borderColor: palette.accent,
-    title: " Library (tick = on Device) ",
+    title: libraryTitle(host.unlisted?.length ?? 0),
     titleColor: palette.text,
   })
   libraryPane.add(tree)
@@ -273,7 +275,10 @@ export function attachSelectionScreen(
 
   function rowsNow(): { tree: TreeRow[]; rules: ReturnType<typeof visibleRules> } {
     const selected = selectedPathsOf(host.files, selection)
-    return { tree: flattenTree(artists, selected, expanded), rules: visibleRules(selection) }
+    return {
+      tree: flattenTree(artists, selected, expanded, host.unlisted ?? []),
+      rules: visibleRules(selection),
+    }
   }
 
   function totalRows(): number {
@@ -342,7 +347,8 @@ export function attachSelectionScreen(
       : st`${packed.free} free ${dim("·")} ${packed.tracks}`
 
     const selected = selectedPathsOf(host.files, selection)
-    const treeRows = flattenTree(artists, selected, expanded)
+    libraryPane.title = libraryTitle(host.unlisted?.length ?? 0)
+    const treeRows = flattenTree(artists, selected, expanded, host.unlisted ?? [])
     const rules = visibleRules(selection)
     const localPlan = planOf(host.files, selection, host.ledger, host.freeBytes)
     paintTree(treeRows)
@@ -973,12 +979,22 @@ function deviceFacts(host: SelectionHost): DeviceFacts {
   }
 }
 
+function libraryTitle(unlistedCount: number): string {
+  if (unlistedCount === 0) {
+    return " Library (tick = on Device) "
+  }
+  return ` Library (tick = on Device) · Unlisted: ${unlistedCount} `
+}
+
 function treeLabel(row: TreeRow) {
   if (row.kind === "artist") {
     return st`${tick(row.state)} ${bold(row.name)}`
   }
   if (row.kind === "album") {
     return st`    ${tick(row.state)} ${row.album} ${dim(`(${row.trackCount})`)}`
+  }
+  if (row.kind === "unlisted") {
+    return st`${dim(`${row.path}  ${row.reason}`)}`
   }
   const mark = row.selected ? fg(palette.green)("·") : fg(palette.muted)("·")
   return st`        ${mark} ${row.title}`

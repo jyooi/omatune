@@ -412,7 +412,7 @@ test("--strict refuses on a Skipped Track", async () => {
   const fake = await makeDir("omatune-sync-fake-")
   const library = join(dir, "library")
   await mkdir(library)
-  await Bun.write(join(library, "bad.wav"), "RIFF")
+  await copyFile(join(LIBRARY, "tone-suite/01-pregap.mp3"), join(library, "bad:name.mp3"))
   await writeConfig(dir, library)
   await writeSelection(
     dir,
@@ -426,6 +426,30 @@ path = "*"
   const result = await sync(dir, fake, ["--yes", "--strict", "--no-eject"])
   expect(result.code).toBe(1)
   expect(result.stderr).toContain("Skipped")
+})
+
+test("sync summary counts Unlisted files", async () => {
+  const dir = await makeDir("omatune-sync-unlisted-")
+  const fake = await makeDir("omatune-sync-fake-")
+  const library = join(dir, "library")
+  await mkdir(library)
+  await copyFile(join(LIBRARY, "tone-suite/01-pregap.mp3"), join(library, "ok.mp3"))
+  await Bun.write(join(library, "song.alac"), "alac-bytes")
+  await writeConfig(dir, library)
+  await writeSelection(
+    dir,
+    `version = 1
+
+[[include]]
+path = "*"
+`,
+  )
+  await emptyClassic(fake)
+  const result = await sync(dir, fake, ["--yes", "--no-eject"])
+  expect(result.code).toBe(0)
+  expect(result.stdout).toContain("Unlisted: 1")
+  const listed = await sync(dir, fake, ["--yes", "--no-eject", "--unlisted"])
+  expect(listed.stdout).toContain("Unlisted song.alac: rename .alac to .m4a")
 })
 
 test("Sync of the Verification Library writes ArtworkDB the S2 parser reads", async () => {

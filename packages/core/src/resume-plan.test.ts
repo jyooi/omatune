@@ -22,6 +22,7 @@ test("reconcilePlanWithDevice promotes missing keep Tracks to add", async () => 
     bytesNeeded: 0,
     freeSpaceAfter: 100,
     forceModel: null,
+    unlisted: [],
   }
   const next = await reconcilePlanWithDevice(plan, root)
   expect(next.keep.map((track) => track.path)).toEqual(["present.mp3"])
@@ -61,6 +62,7 @@ test("reconcilePlanWithDevice counts a Transcode moved from keep to add", async 
     forceModel: null,
     playCountsPending: 0,
     transcodeCount: 0,
+    unlisted: [],
   }
   const next = await reconcilePlanWithDevice(plan, root)
   expect(next.keep.map((track) => track.path)).toEqual(["present.flac"])
