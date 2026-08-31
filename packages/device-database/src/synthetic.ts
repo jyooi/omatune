@@ -20,6 +20,19 @@ import { serializeArtworkdb } from "./artwork.ts"
 import { writeU16, writeU32, writeU64 } from "./bytes.ts"
 import { type Chunk } from "./chunk.ts"
 import { serializeItunesdb, type Itunesdb } from "./codec.ts"
+import {
+  MHIT_FILE_TYPE,
+  MHIT_GAPLESS_ALBUM_FLAG,
+  MHIT_GAPLESS_TRACK_FLAG,
+  MHIT_MEDIA_TYPE,
+  MHIT_TYPE_1,
+  MHIT_TYPE_2,
+  MHIT_UNKNOWN_D0,
+  MHYP_MASTER_FLAG,
+  MHYP_STRING_MHOD_COUNT,
+  fileTypeCodeFor,
+  formatBytesFor,
+} from "./firmware.ts"
 import { artworkFormatRows } from "./model/format-table.ts"
 import { rgb888ToRgb565Le } from "./ithmb.ts"
 import { SCRUB_HMAC_KEY, signScrubbedItunesdb } from "./scrub.ts"
@@ -33,6 +46,9 @@ const MHOD_HEADER = 24
 const MHYP_HEADER = 184
 const MHIP_HEADER = 76
 const VERSION = 0x30
+/* A zero media type makes the stock firmware skip the whole Device
+ * Database. See HUF-283 and firmware.ts. */
+const MEDIA_TYPE_AUDIO = 1
 const FOLDER_COUNT = 50
 const FIRST_IMAGE_ID = 0x64
 const CLASSIC_FAMILY = "iPod classic 120 GB (2008)"
@@ -372,6 +388,8 @@ function mhypOf(name: string, items: Chunk[]): Chunk {
   writeFourCc(header, 0, "mhyp")
   writeU32(header, 12, 1)
   writeU32(header, 16, items.length)
+  header[MHYP_MASTER_FLAG] = 1
+  writeU16(header, MHYP_STRING_MHOD_COUNT, 1)
   return {
     id: "mhyp",
     header,
@@ -384,7 +402,8 @@ function mhypOf(name: string, items: Chunk[]): Chunk {
 function mhipOf(trackId: number): Chunk {
   const header = new Uint8Array(MHIP_HEADER)
   writeFourCc(header, 0, "mhip")
-  writeU32(header, 12, 1)
+  /* This mhip holds no child mhod, so the count stays 0. */
+  writeU32(header, 12, 0)
   writeU32(header, 24, trackId)
   return { id: "mhip", header, children: [], body: empty(), padding: empty() }
 }
@@ -402,19 +421,25 @@ function mhitOf(track: SyntheticTrack, trackId: number): Chunk {
   writeU32(header, 12, mhods.length)
   writeU32(header, 16, trackId)
   writeU32(header, 20, 1)
-  writeU32(header, 24, 1)
+  const extension = extensionOf(track.devicePath)
+  writeReversedFourCc(header, MHIT_FILE_TYPE, fileTypeCodeFor(extension))
+  const format = formatBytesFor(extension)
+  header[MHIT_TYPE_1] = format.type1
+  header[MHIT_TYPE_2] = format.type2
   writeU32(header, 36, track.size)
   writeU32(header, 40, Math.round(track.durationSeconds * 1000))
   writeU32(header, 44, track.track)
   writeU32(header, 92, track.disc)
   writeU64(header, 112, track.dbid)
   header[164] = track.artwork ? 1 : 2
+  writeU32(header, MHIT_MEDIA_TYPE, MEDIA_TYPE_AUDIO)
+  writeU32(header, MHIT_UNKNOWN_D0, 1)
+  writeU16(header, MHIT_GAPLESS_TRACK_FLAG, 1)
+  writeU16(header, MHIT_GAPLESS_ALBUM_FLAG, 0)
   if (track.gapless) {
     writeU32(header, 184, track.gapless.encoderDelay)
     writeU64(header, 188, BigInt(track.gapless.sampleCount))
     writeU32(header, 200, track.gapless.encoderPadding)
-    writeU16(header, 256, 1)
-    writeU16(header, 258, 1)
   }
   return { id: "mhit", header, children: mhods, body: empty(), padding: empty() }
 }
@@ -445,6 +470,15 @@ function encodeUtf16le(text: string): Uint8Array {
 
 function empty(): Uint8Array {
   return new Uint8Array(0)
+}
+
+/* The firmware stores the file type code least significant byte first. */
+function writeReversedFourCc(bytes: Uint8Array, offset: number, code: string): void {
+  let i = 0
+  while (i < 4) {
+    bytes[offset + i] = code.charCodeAt(3 - i)
+    i += 1
+  }
 }
 
 function writeFourCc(bytes: Uint8Array, offset: number, id: string): void {
