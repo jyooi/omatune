@@ -12,13 +12,6 @@ import { runSync, type SyncEvent, type SyncPlan } from "./sync.ts"
 import { readTrackTags } from "./tags.ts"
 import { TRANSCODE_CEILING } from "./transcode-plan.ts"
 
-/**
- * End-to-end Sync over the fake Platform, with FLAC Tracks in the Library.
- *
- * These cover the paths the Transcode feature adds: a normal Sync, the hi-res
- * downsample, the Transcode Cache, and a resume after a stopped Sync.
- */
-
 const REPO = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))))
 const FIXTURES = join(REPO, "fixtures", "audio", "library")
 const SERIAL = "000a1b2c3d4e5f60"
@@ -178,7 +171,6 @@ test("the Ledger keeps the source identity and records the Transcode", async () 
   expect(ledger.value.tracks).toHaveLength(2)
   for (const entry of ledger.value.tracks) {
     const sourceBytes = new Uint8Array(readFileSync(join(kit.library, entry.libraryPath)))
-    // Identity is the source Track, so size and sha256 describe the Library file.
     expect(entry.size).toBe(sourceBytes.length)
     expect(entry.sha256).toBe(Bun.SHA256.hash(sourceBytes, "hex"))
     expect(entry.devicePath).toContain(entry.sha256.slice(0, 16))
@@ -202,10 +194,8 @@ test("a hi-res Track lands on the Device at the ceiling", async () => {
   const bytes = deviceFile(kit, hires.devicePath)
   const tags = readTrackTags(bytes)
   expect(tags.codec).toBe("alac")
-  // Two seconds at 96 kHz becomes two seconds at 48 kHz.
   expect(tags.durationSeconds).toBeCloseTo(2, 2)
   expect(tags.gapless?.sampleCount).toBe(BigInt(2 * TRANSCODE_CEILING.sampleRate))
-  // Half the rate and two thirds the depth make the Transcode much smaller.
   const source = readFileSync(join(kit.library, "Björk/Lossless Suite/02-hires.flac"))
   expect(bytes.length).toBeLessThan(source.length)
 })
@@ -234,7 +224,6 @@ test("a second Sync serves the Transcode from the cache and keeps the Tracks", a
   expect(second.plan.add).toHaveLength(0)
   expect(second.plan.keep).toHaveLength(2)
   expect(second.plan.transcodeCount).toBe(0)
-  // The kept sizes are the real Transcode sizes, not estimates.
   for (const keep of second.plan.keep) {
     expect(keep.estimated).toBe(false)
   }
@@ -269,7 +258,6 @@ test("a Sync prunes a Transcode whose source Track left the Library", async () =
   expect(second.error).toBeNull()
 
   expect(await Bun.file(transcodeCachePath(cache, goneKey)).exists()).toBe(false)
-  // The Track that stayed keeps its entry.
   const stayed = first.plan.add.find((add) => add.path.endsWith("01-standard.flac"))
   expect(stayed).toBeDefined()
   if (stayed) {
@@ -295,8 +283,6 @@ test("a resume after a stopped Sync keeps the Transcode already on the Device", 
   }
   const keptBefore = deviceFile(kit, kept.devicePath)
 
-  /* Rewind to the state a stopped Sync leaves: the marker is present, one
-   * Track is on the Device, and the other never arrived. */
   writeFileSync(
     join(kit.mountPoint, SYNCING_MARKER),
     `${JSON.stringify({ serial: SERIAL, startedAt: 1 })}\n`,
@@ -305,7 +291,6 @@ test("a resume after a stopped Sync keeps the Transcode already on the Device", 
 
   const second = await sync(kit)
   expect(second.error).toBeNull()
-  // The missing Track comes back and the present one is not rewritten.
   expect(second.plan.add.map((add) => add.path)).toEqual([dropped.path])
   expect(second.plan.keep.map((keep) => keep.path)).toEqual([kept.path])
   expect(deviceFile(kit, kept.devicePath)).toEqual(keptBefore)
@@ -320,9 +305,6 @@ test("adoption rebuilds a lost Ledger from the Transcodes on the Device", async 
     first.plan.add.map((add) => [add.path, deviceFile(kit, add.devicePath)] as const),
   )
 
-  /* Lose the Ledger but keep the Device. A Sync must adopt what is there
-   * rather than wipe it, and a Transcode has to be adoptable even though its
-   * size never matches the Library file it came from. */
   rmSync(join(kit.configDir, "devices", SERIAL, "ledger.json"))
 
   const second = await sync(kit)
@@ -341,7 +323,6 @@ test("adoption rebuilds a lost Ledger from the Transcodes on the Device", async 
     const bytes = before.get(entry.libraryPath)
     expect(bytes).toBeDefined()
     if (bytes) {
-      // The bytes on the Device are untouched, and the Ledger describes them.
       expect(deviceFile(kit, entry.devicePath)).toEqual(bytes)
       expect(entry.transcodedSize).toBe(bytes.length)
       expect(entry.transcodedSha256).toBe(Bun.SHA256.hash(bytes, "hex"))
@@ -366,7 +347,6 @@ test("a Sync that mixes FLAC with other formats transcodes only the FLAC", async
   expect(byExtension.get("m4a")?.transcode).toBe(false)
   expect(byExtension.get("m4a")?.devicePath).toEndWith(".m4a")
 
-  // The files that need no Transcode reach the Device unchanged.
   const mp3 = byExtension.get("mp3")
   expect(mp3).toBeDefined()
   if (mp3) {
@@ -380,7 +360,6 @@ test("a damaged FLAC Track is Skipped and the rest of the Sync finishes", async 
   const kit = await harness(FLAC_TRACKS)
   const broken = join(kit.library, "Björk/Lossless Suite/02-hires.flac")
   const bytes = new Uint8Array(readFileSync(broken))
-  // Keep the header so the Track still reads as FLAC, then ruin the audio.
   bytes.fill(0xff, Math.floor(bytes.length / 2), bytes.length - 16)
   writeFileSync(broken, bytes)
 

@@ -8,8 +8,6 @@ export function skipReasonText(reason: string): string {
   return reason.replaceAll("_", " ")
 }
 
-/* Marks a transcoded add and says its size is an estimate, so a reader knows
- * why the number can move. */
 function addSuffix(track: SyncPlan["add"][number]): string {
   if (!track.transcode) {
     return formatBytes(track.size)

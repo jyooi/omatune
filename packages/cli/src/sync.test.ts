@@ -611,10 +611,6 @@ path = "tone-suite"
   expect(await Bun.file(dbPath).exists()).toBe(true)
 })
 
-/*
- * iTunes sets the Track flag on every Track, whatever the encoder left, and
- * it never marks the Album. The writer copies that. See HUF-283.
- */
 const GAPLESS_PAIR = {
   pregap: 576,
   sampleCount: 88200n,

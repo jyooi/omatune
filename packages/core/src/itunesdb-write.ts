@@ -161,7 +161,6 @@ function mhypOf(name: string, items: Chunk[], persistentId: bigint): Chunk {
 function mhipOf(trackId: number): Chunk {
   const header = new Uint8Array(MHIP_HEADER)
   writeFourCc(header, 0, "mhip")
-  /* This mhip holds no child mhod, so the count stays 0. */
   writeU32(header, 12, 0)
   writeU32(header, 24, trackId)
   return { id: "mhip", header, children: [], body: empty(), padding: empty() }

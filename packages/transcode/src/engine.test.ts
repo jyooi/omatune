@@ -30,7 +30,6 @@ test("a source above the ceiling comes down to it", async () => {
   expect(stream.outputRate).toBe(48000)
   expect(stream.outputBits).toBe(16)
   expect(stream.bitPerfect).toBe(false)
-  // Half the rate means half the frames, and no filter tail beyond them.
   expect(stream.frames).toBe(stream.sourceFrames / 2)
 })
 
@@ -39,12 +38,12 @@ test("the magic cookie carries the ALAC config in big-endian order", async () =>
   const cookie = stream.magicCookie
   expect(cookie.length).toBe(24)
   const view = new DataView(cookie.buffer, cookie.byteOffset, cookie.byteLength)
-  expect(view.getUint32(0, false)).toBe(4096) // frameLength
-  expect(cookie[4]).toBe(0) // compatibleVersion
-  expect(cookie[5]).toBe(16) // bitDepth
-  expect(cookie[9]).toBe(1) // numChannels
-  expect(view.getUint32(12, false)).toBeGreaterThan(0) // maxFrameBytes
-  expect(view.getUint32(20, false)).toBe(44100) // sampleRate
+  expect(view.getUint32(0, false)).toBe(4096)
+  expect(cookie[4]).toBe(0)
+  expect(cookie[5]).toBe(16)
+  expect(cookie[9]).toBe(1)
+  expect(view.getUint32(12, false)).toBeGreaterThan(0)
+  expect(view.getUint32(20, false)).toBe(44100)
 })
 
 test("the same source and ceiling always produce the same packets", async () => {
@@ -61,7 +60,6 @@ test("the same source and ceiling always produce the same packets", async () => 
 test("a damaged stream reports a Transcode error instead of writing audio", async () => {
   const source = fixture("01-standard.flac")
   const damaged = Uint8Array.from(source)
-  // Overwrite well past the headers so the decoder reaches a bad frame.
   damaged.fill(0xff, Math.floor(damaged.length / 2), damaged.length - 16)
   await expect(encodeFlacToAlac(damaged, CEILING)).rejects.toBeInstanceOf(TranscodeError)
 })

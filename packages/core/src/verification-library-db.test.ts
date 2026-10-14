@@ -1,15 +1,4 @@
-/*
- * Regression test for HUF-283.
- *
- * The stock firmware skipped the whole Device Database that a Sync of the
- * Verification Library wrote. It listed no Track, no artist, and no album.
- * The database parsed cleanly and its hash58 was correct, so no test caught
- * it. The media type field on every mhit was 0, and iTunes always writes 1.
- *
- * This test builds the same 14-track database the failing Sync built, then
- * holds it to the rules in `firmwareProblems`. Every rule there comes from a
- * genuine iTunes database written by the reference Device.
- */
+/* Regression test for HUF-283. */
 
 import { expect, test } from "bun:test"
 import { firmwareProblems, parseItunesdb } from "@omatune/device-database"

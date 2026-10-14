@@ -1,11 +1,3 @@
-/*
- * ArtworkDB writer for one mhii per Track that has Artwork.
- * Thumbnail bytes live in ithmb files named F<formatId>_1.ithmb.
- *
- * Layout matches the synthetic builder in tests/artwork-build.ts
- * and the ipodlinux Artwork Database notes.
- */
-
 import type { Artworkdb } from "./artwork.ts";
 import { writeU16, writeU32 } from "./bytes.ts";
 import { serializeChunk, type Chunk } from "./chunk.ts";

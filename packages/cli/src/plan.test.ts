@@ -93,8 +93,6 @@ album_artist = "BJÖRK"
   await classicDevice(fake)
   const result = await plan(dir, fake)
   expect(result.code).toBe(0)
-  // Björk has five Tone Suite Tracks, four Dual Disc Tracks, and two
-  // Lossless Suite Tracks, and the FLAC pair transcodes.
   expect(result.json?.add).toHaveLength(11)
   expect(result.json?.remove).toHaveLength(0)
   expect(result.json?.keep).toHaveLength(0)

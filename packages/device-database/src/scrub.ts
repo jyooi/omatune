@@ -1,12 +1,3 @@
-/*
- * Scrub a Device Database Fixture.
- *
- * The Scrub replaces UTF-16 and UTF-8 strings with same-length placeholders.
- * The Scrub replaces library and Track persistent ids with keyed values.
- * The Scrub fills every byte of each ithmb block with a flat colour plus index.
- * The Scrub signs the iTunesDB with hash58 under FAKE_SERIAL.
- */
-
 import { createHash, createHmac } from "node:crypto"
 import { mkdir } from "node:fs/promises"
 import { basename, dirname, join } from "node:path"

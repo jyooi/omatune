@@ -1,15 +1,3 @@
-/* omatune Transcode engine.
- *
- * One WebAssembly module carries the whole chain: a libFLAC decoder, the
- * windowed-sinc resampler with dither, and Apple's ALAC encoder.
- * The host drives it with three imports and reads back ALAC packets, so the
- * module never touches a file, a clock, or the network.
- *
- * The module is deterministic. The same source bytes and the same ceiling
- * always produce the same packets, which is what the Transcode Cache and the
- * transcoded hash in the Ledger depend on.
- */
-
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,13 +24,10 @@ void om_host_info(uint32_t in_rate, uint32_t in_channels, uint32_t in_bits, uint
                   uint32_t out_bits, uint32_t frames_per_packet, uint32_t source_frames_lo,
                   uint32_t source_frames_hi, const uint8_t *cookie, uint32_t cookie_len);
 
-/* Delivers one finished ALAC packet. */
 OM_IMPORT("packet") void om_host_packet(const uint8_t *data, uint32_t len, uint32_t frames);
 
 OM_EXPORT int32_t om_transcode(uint32_t ceiling_rate, uint32_t ceiling_bits);
 
-/* Scratch allocation for the host. The decoder allocates its own read buffer,
- * so these exist only so the host can stage bytes when it needs to. */
 OM_EXPORT void *om_alloc(uint32_t size);
 OM_EXPORT void om_free(void *ptr);
 }
@@ -51,7 +36,6 @@ void *om_alloc(uint32_t size) { return malloc(size); }
 
 void om_free(void *ptr) { free(ptr); }
 
-/* Status codes the host maps onto messages. */
 enum {
   OM_OK = 0,
   OM_ERR_DECODER = -1,
@@ -76,7 +60,6 @@ struct Job {
   uint32_t bytes_per_sample = 0;
   uint32_t frames_per_packet = kALACDefaultFramesPerPacket;
 
-  /* The ceiling arrives per call, so the constant stays in core. */
   uint32_t ceiling_rate = 0;
   uint32_t ceiling_bits = 0;
 
@@ -84,26 +67,21 @@ struct Job {
   int32_t clip_min = 0;
   int32_t clip_max = 0;
 
-  /* Planar decode staging, one buffer per channel. */
   double *plane[OM_MAX_CHANNELS] = {nullptr};
   uint32_t plane_cap = 0;
 
-  /* Interleaved resampler output, then packed into pcm for the encoder. */
   int32_t *interleaved = nullptr;
   uint32_t interleaved_cap = 0;
 
-  uint8_t *pcm = nullptr;       /* one full packet of packed samples */
-  uint32_t pcm_frames = 0;      /* frames currently held in pcm */
-  uint8_t *packet = nullptr;    /* encoder output */
+  uint8_t *pcm = nullptr;
+  uint32_t pcm_frames = 0;
+  uint8_t *packet = nullptr;
   uint32_t packet_cap = 0;
 
   AudioFormatDescription in_format = {};
   AudioFormatDescription out_format = {};
 
   uint64_t source_frames = 0;
-  /* Exact output frame count derived from the source. The filter tail can run
-   * a sample or two past it, and those samples are dropped so the file holds
-   * exactly the audio the source did. Zero means the source declared none. */
   uint64_t expected_frames = 0;
   uint64_t emitted_frames = 0;
   int32_t status = OM_OK;
@@ -112,8 +90,7 @@ struct Job {
 
 Job g_job;
 
-/* ALAC accepts these depths only. A source below 16 bits is promoted, which
- * stays lossless because the promotion is a left shift. */
+/* ALAC accepts these depths only. */
 uint32_t alac_depth(uint32_t bits) {
   if (bits <= 16) {
     return 16;
@@ -176,15 +153,12 @@ int ensure_interleaved(Job &job, uint32_t frames) {
   return 1;
 }
 
-/* Writes one sample as packed little-endian signed bytes, the layout the
- * ALAC encoder expects for kALACFormatFlagIsPacked input. */
 void store_sample(uint8_t *dst, int32_t value, uint32_t bytes) {
   for (uint32_t i = 0; i < bytes; i++) {
     dst[i] = (uint8_t)((uint32_t)value >> (8 * i));
   }
 }
 
-/* Encodes and emits one packet, then clears the staging buffer. */
 int32_t flush_packet(Job &job) {
   if (job.pcm_frames == 0) {
     return OM_OK;
@@ -199,7 +173,6 @@ int32_t flush_packet(Job &job) {
   return OM_OK;
 }
 
-/* Moves interleaved output into packet-sized groups for the encoder. */
 int32_t push_frames(Job &job, const int32_t *frames, uint32_t count) {
   uint32_t channels = job.in_channels;
   if (job.expected_frames > 0) {
@@ -272,8 +245,6 @@ void metadata_cb(const FLAC__StreamDecoder *, const FLAC__StreamMetadata *metada
   job.out_bits = alac_depth(job.in_bits < job.ceiling_bits ? job.in_bits : job.ceiling_bits);
   job.bytes_per_sample = (job.out_bits + 7) / 8;
 
-  /* Samples move into output least-significant-bit units before the filter,
-   * so the resampler and the dither both work in the final scale. */
   if (job.in_bits >= job.out_bits) {
     job.scale = 1.0 / (double)((uint32_t)1 << (job.in_bits - job.out_bits));
   } else {
@@ -287,8 +258,6 @@ void metadata_cb(const FLAC__StreamDecoder *, const FLAC__StreamMetadata *metada
     job.status = OM_ERR_MEMORY;
     return;
   }
-  /* A stream that keeps its rate and its depth stays bit-perfect, so it takes
-   * no dither. Any resampling or any depth reduction needs it. */
   int lossless = job.in_rate == job.out_rate && job.in_bits <= job.out_bits;
   om_resample_set_dither(job.resampler, lossless ? 0 : 1, job.clip_min, job.clip_max);
 
@@ -329,8 +298,6 @@ void metadata_cb(const FLAC__StreamDecoder *, const FLAC__StreamMetadata *metada
   job.in_format.mReserved = 0;
 
   job.pcm = (uint8_t *)malloc((size_t)job.frames_per_packet * frame_bytes);
-  /* The encoder can emit an escape packet slightly larger than its input, so
-   * the output buffer uses the encoder's own worst-case bound. */
   job.packet_cap = job.frames_per_packet * job.in_channels * ((10 + 32) / 8) + 1;
   job.packet = (uint8_t *)malloc(job.packet_cap);
   if (!job.pcm || !job.packet) {
@@ -340,7 +307,6 @@ void metadata_cb(const FLAC__StreamDecoder *, const FLAC__StreamMetadata *metada
 
   job.source_frames = info.total_samples;
   if (job.source_frames > 0) {
-    /* Round up so a rate change that lands between samples keeps the last one. */
     uint64_t scaled = job.source_frames * (uint64_t)job.out_rate;
     job.expected_frames = (scaled + job.in_rate - 1) / (uint64_t)job.in_rate;
   }
@@ -408,7 +374,7 @@ void error_cb(const FLAC__StreamDecoder *, FLAC__StreamDecoderErrorStatus, void 
   }
 }
 
-} // namespace
+}
 
 int32_t om_transcode(uint32_t ceiling_rate, uint32_t ceiling_bits) {
   job_reset(g_job);
@@ -441,7 +407,6 @@ int32_t om_transcode(uint32_t ceiling_rate, uint32_t ceiling_bits) {
   }
 
   if (result == OM_OK) {
-    /* Drain the filter tail, then emit the final short packet. */
     uint32_t capacity = om_resample_max_out(g_job.resampler, 0) + g_job.frames_per_packet;
     if (ensure_interleaved(g_job, capacity)) {
       uint32_t produced = om_resample_push(g_job.resampler, (const double *const *)g_job.plane, 0,

@@ -6,11 +6,6 @@
  *   https://web.archive.org/web/2016/http://www.ipodlinux.org/ITunesDB/iTunesDB_File.html
  * - ipodlinux wiki ITunesDB, Wayback 2012:
  *   https://web.archive.org/web/2012/http://ipodlinux.org/wiki/ITunesDB
- * - Repo research notes on branch research/device-database-format-map:
- *   docs/research/device-database-format-map.md
- *
- * Little endian. Unknown header bytes and unknown mhod types stay opaque.
- * Hash slots at 0x58 (20 bytes) and 0x72 (46 bytes) stay opaque.
  */
 
 import { copySlice, readU16, readU32 } from "./bytes.ts";

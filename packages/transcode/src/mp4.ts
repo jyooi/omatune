@@ -1,14 +1,3 @@
-/**
- * A minimal MPEG-4 muxer for ALAC audio.
- *
- * The output carries exactly what an iPod and the tag reader in
- * `packages/core/src/tags.ts` need: one audio track with an `alac` sample
- * entry, the sample tables, and the iTunes metadata atoms.
- *
- * Every field is fixed or derived from the input, so muxing the same stream
- * twice produces the same bytes. The Transcode Cache depends on that.
- */
-
 export type Mp4Tags = {
   readonly title: string | null
   readonly artist: string | null
@@ -37,7 +26,6 @@ export type Mp4Input = {
 
 const MOVIE_TIMESCALE = 1000
 
-/* iTunes data atom type codes. */
 const DATA_BINARY = 0
 const DATA_UTF8 = 1
 const DATA_JPEG = 13
@@ -91,7 +79,6 @@ function zeros(count: number): Uint8Array {
   return new Uint8Array(count)
 }
 
-/* The unity display matrix every audio-only file carries. */
 const UNITY_MATRIX = concat([
   u32(0x00010000),
   u32(0),
@@ -182,9 +169,6 @@ function alacSampleEntry(input: Mp4Input): Uint8Array {
   )
 }
 
-/* One entry per run of packets that hold the same frame count. The final
- * packet usually holds fewer frames, and the total is trimmed so the file
- * presents exactly the frames the source carried. */
 function sttsEntries(input: Mp4Input): ReadonlyArray<{ count: number; delta: number }> {
   const entries: { count: number; delta: number }[] = []
   let remaining = input.totalFrames
@@ -305,13 +289,6 @@ function moov(input: Mp4Input, mdatOffset: number): Uint8Array {
   return box("moov", mvhd(durationMs), trak, udta(input))
 }
 
-/**
- * Builds one `.m4a` file around the ALAC packets.
- *
- * The chunk offset table needs the size of `moov`, and `moov` holds that
- * table, so the layout is built twice. The second pass changes only the
- * offset value, which keeps the size identical.
- */
 export function buildAlacM4a(input: Mp4Input): Uint8Array {
   const header = ftyp()
   const probe = moov(input, 0)

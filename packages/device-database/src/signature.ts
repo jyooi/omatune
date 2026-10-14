@@ -1,11 +1,3 @@
-/*
- * iTunesDB signature dispatch by family.
- *
- * none: zero the hash slots and set hashing_scheme to 0.
- * hash58: sign with hash58.
- * This module does not implement hash72 or hashAB.
- */
-
 import { writeU16 } from "./bytes.ts";
 import {
   HASH58_LENGTH,

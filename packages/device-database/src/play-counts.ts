@@ -4,12 +4,6 @@
  * Sources:
  * - ipodlinux wiki Play Counts File, Wayback 2012:
  *   https://web.archive.org/web/2012/http://ipodlinux.org/wiki/ITunesDB/Play_Counts_File
- * - Repo research notes on branch research/device-database-format-map:
- *   docs/research/device-database-format-map.md
- *
- * Little endian. Entry length comes from the mhdp header.
- * Entries map to iTunesDB Track order by position.
- * Corrupt files return a typed error. The parser does not throw.
  */
 
 import { concatBytes, readU32, writeU32 } from "./bytes.ts";

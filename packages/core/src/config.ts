@@ -250,8 +250,6 @@ export async function registerDevice(
   return { ok: true, value: { serial: id, name } }
 }
 
-/* Family strings read "iPod classic 120 GB (2008)"; the default name drops
- * the "iPod" prefix and the year, and tightens "120 GB" to "120GB". */
 export function defaultDeviceName(family: string | null, serial: string): string {
   if (!family) {
     return serial

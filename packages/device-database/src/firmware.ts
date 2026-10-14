@@ -1,19 +1,3 @@
-/*
- * Rules the stock firmware needs before it loads an iTunesDB.
- *
- * A Device Database can parse cleanly, carry a valid hash58, and still be
- * skipped whole by the firmware. When that happens the Device lists no
- * Track, no artist, and no album, and it never writes Play Data back.
- *
- * Every rule here comes from one source: a genuine iTunes-written database
- * from the reference iPod classic 120 GB. A rule earns its place only when
- * every Track in that Fixture obeys it. The golden tests check that.
- *
- * HUF-283 found the first rule the hard way, on real hardware. The writer
- * left the media type at zero, and the firmware skipped all 14 Tracks.
- * Restoring that one field alone brought the whole Library back.
- */
-
 import { readU16, readU32, readU64 } from "./bytes.ts"
 import type { Chunk } from "./chunk.ts"
 import {
@@ -52,7 +36,6 @@ const REQUIRED_MHSD_TYPES = [MHSD_TRACKS, MHSD_PLAYLISTS, MHSD_PODCASTS]
 const PLAYLIST_MHSD_TYPES = new Set([MHSD_PLAYLISTS, MHSD_PODCASTS])
 
 export type FirmwareProblem = {
-  /** Short stable name, so a test can name the rule that failed. */
   readonly rule: string
   /** Where the problem sits, such as "mhit 3" or "mhyp 0". */
   readonly where: string
@@ -74,12 +57,10 @@ export function firmwareProblems(db: Itunesdb): FirmwareProblem[] {
   return problems
 }
 
-/** True when the database breaks no rule. */
 export function firmwareReadable(db: Itunesdb): boolean {
   return firmwareProblems(db).length === 0
 }
 
-/** The four character code the firmware expects for a Device file extension. */
 export function fileTypeCodeFor(extension: string): string {
   const clean = extension.replace(/^\./u, "").toLowerCase()
   if (clean === "mp3") {
@@ -94,7 +75,6 @@ export function fileTypeCodeFor(extension: string): string {
   return "M4A "
 }
 
-/** The format byte pair that goes with a Device file extension. */
 export function formatBytesFor(extension: string): { type1: number, type2: number } {
   const clean = extension.replace(/^\./u, "").toLowerCase()
   if (clean === "mp3") {

@@ -24,9 +24,6 @@ export async function adoptLedger(input: {
     const devicePath = devicePathFor(sha256, deviceExtensionFor(track.extension))
     const absolute = join(input.mountPoint, devicePath)
 
-    /* A Track copied as-is must match its Library size exactly. A Transcode
-     * cannot: the Device file is a different encoding of the same Track, so
-     * adoption reads the size and the hash off the Device instead. */
     let transcoded: { size: number; sha256: string } | null = null
     if (track.transcode) {
       transcoded = await adoptedTranscode(absolute)

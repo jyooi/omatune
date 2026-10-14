@@ -1,10 +1,3 @@
-/*
- * Unit cover for the rules in src/firmware.ts.
- *
- * The golden test proves the rules match genuine iTunes output. These tests
- * prove each rule still fires when a writer breaks it.
- */
-
 import { describe, expect, test } from "bun:test";
 import {
   HASH72_OFFSET,
@@ -51,7 +44,6 @@ function rulesFired(bytes: Uint8Array): string[] {
   return [...new Set(firmwareProblems(parseItunesdb(bytes)).map((problem) => problem.rule))].sort();
 }
 
-/* Finds every mhit header start, so a test can poke one field on each. */
 function mhitOffsets(bytes: Uint8Array): number[] {
   const out: number[] = [];
   for (let i = 0; i + 4 <= bytes.byteLength; i += 1) {

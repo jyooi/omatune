@@ -67,7 +67,6 @@ test("a written entry reads back and reports its size", async () => {
   })
   const hit = await lookupTranscodeCache(dir, key)
   expect(hit?.size).toBe(5)
-  // The hash comes from the sidecar, so a hit never re-reads the audio.
   expect(hit?.sha256).toBe(written.sha256)
   expect(hit?.sha256).toBe(Bun.SHA256.hash(bytes, "hex"))
   expect(hit?.source.libraryPath).toBe("song.flac")

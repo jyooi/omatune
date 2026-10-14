@@ -15,22 +15,12 @@ export type TranscodeOutput = {
   readonly outputRate: number
   readonly outputBits: number
   readonly frames: number
-  /** True when the samples came through unchanged, with no resampling or dither. */
   readonly bitPerfect: boolean
 }
 
-/**
- * Turns one FLAC Track into an ALAC `.m4a` the iPod plays.
- *
- * The Library file never changes. Tags and Artwork carry over whole, so the
- * result is a full citizen in the Device Database.
- */
 export async function transcodeFlacToAlac(input: TranscodeInput): Promise<TranscodeOutput> {
   const stream = await encodeFlacToAlac(input.source, input.ceiling)
 
-  /* The filter tail can run a frame or two past the source, so the file
-   * presents exactly the frames the source declared. A source that declares
-   * none keeps everything the encoder produced. */
   const expected =
     stream.sourceFrames > 0
       ? Math.ceil((stream.sourceFrames * stream.outputRate) / stream.sourceRate)

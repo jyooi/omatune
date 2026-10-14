@@ -14,12 +14,6 @@
  * The substitution tables are reverse-engineered firmware constants.
  * They match the AES S-box and inverse S-box in FIPS 197.
  * The 18-byte seed is a reverse-engineered firmware constant.
- *
- * The key is the 16-hex FireWire ID.
- * USB serial on the reference Device is that FireWire ID.
- * Signing zeroes db_id at 0x18, 20 bytes at 0x32, and the hash at 0x58.
- * It sets hashing_scheme to 1, HMAC-SHA1s the file, and writes 20 bytes at 0x58.
- * Then it restores db_id and the 0x32 region.
  */
 
 import { createHmac, createHash } from "node:crypto";

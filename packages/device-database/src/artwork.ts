@@ -4,11 +4,6 @@
  * Sources:
  * - ipodlinux wiki Artwork Database on ITunesDB:
  *   http://www.ipodlinux.org/ITunesDB/
- * - Repo research notes on branch research/device-database-format-map:
- *   docs/research/device-database-format-map.md
- *
- * Little endian. Unknown header bytes stay opaque.
- * Type 2 mhod rows hold mhni children with ithmb file ids and offsets.
  */
 
 import { readU16, readU32, readU64 } from "./bytes.ts";

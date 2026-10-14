@@ -5,14 +5,6 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { transcodeFlacToAlac } from "./transcode.ts"
 
-/**
- * Proves the ALAC output is real audio by decoding it with an independent
- * decoder and comparing the samples to the source.
- *
- * ffmpeg is the independent decoder. It is not a runtime dependency of
- * omatune, so these tests state that plainly and skip when it is absent.
- */
-
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))))
 const LIBRARY = join(ROOT, "fixtures", "audio", "library", "lossless-suite")
 const CEILING = { sampleRate: 48000, bitsPerSample: 16 }
@@ -76,8 +68,6 @@ test.skipIf(!FFMPEG)("a hi-res Track lands within one bit of an independent resa
   const output = decodeToPcm(transcoded)
   expect(output.length).toBe(reference.length)
 
-  /* The two filters differ in how they start and stop, so the comparison
-   * skips the edges and measures the steady state. */
   const margin = 2000
   let worst = 0
   for (let i = margin; i < output.length - margin; i += 1) {
@@ -86,13 +76,10 @@ test.skipIf(!FFMPEG)("a hi-res Track lands within one bit of an independent resa
       worst = delta
     }
   }
-  // One least-significant bit is the dither. Anything more is a filter fault.
   expect(worst).toBeLessThanOrEqual(1)
 })
 
 test.skipIf(!FFMPEG)("content above the output Nyquist is removed, not folded back", async () => {
-  // A 30 kHz tone at 96 kHz sits above the 24 kHz Nyquist of a 48 kHz output.
-  // Without an anti-alias filter it would reappear at 18 kHz at full scale.
   const flac = join(work, "tone-30k.flac")
   const made = Bun.spawnSync(
     [
@@ -118,7 +105,6 @@ test.skipIf(!FFMPEG)("content above the output Nyquist is removed, not folded ba
       peak = value
     }
   }
-  // Only the dither survives. A folded tone would peak near full scale.
   expect(peak).toBeLessThanOrEqual(4)
 })
 

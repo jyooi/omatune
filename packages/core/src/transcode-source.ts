@@ -9,31 +9,20 @@ import {
 import type { SelectedTrack } from "./rules.ts"
 import { TRANSCODE_CEILING, transcodeRouteFor } from "./transcode-plan.ts"
 
-/** The file a Sync copies to the Device, and how large it really is. */
 export type AddSource = {
   readonly path: string
   readonly size: number
-  /** sha256 of the copied bytes, set only when a Transcode produced them. */
   readonly transcodedSha256: string | null
-  /** True when the Transcode Cache already held the result. */
   readonly cached: boolean
 }
 
 export type MaterialiseInput = {
   readonly libraryRoot: string
   readonly track: SelectedTrack
-  /** sha256 of the Library source, which is the Track identity. */
   readonly sourceSha256: string
   readonly cacheDir: string
 }
 
-/**
- * Produces the file the copy step reads for one add.
- *
- * A Track that needs no Transcode reports its Library file untouched. A Track
- * that needs one comes back from the Transcode Cache, or gets transcoded into
- * the cache first. The Library file never changes either way.
- */
 export async function materialiseAdd(input: MaterialiseInput): Promise<AddSource> {
   const route = transcodeRouteFor(input.track.extension)
   const libraryFile = join(input.libraryRoot, input.track.relativePath)

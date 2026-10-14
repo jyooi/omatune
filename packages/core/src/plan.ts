@@ -14,9 +14,7 @@ export type PlannedTrack = {
   readonly path: string
   readonly devicePath: string
   readonly size: number
-  /** True when a Sync transcodes this Track before it reaches the Device. */
   readonly transcode: boolean
-  /** True when `size` is a budget estimate rather than a measured size. */
   readonly estimated: boolean
 }
 
@@ -30,7 +28,6 @@ export type SyncPlan = {
   readonly freeSpaceAfter: number
   readonly forceModel: string | null
   readonly playCountsPending: number
-  /** Adds that a Transcode produces, counted for the Plan summary. */
   readonly transcodeCount: number
   readonly unlisted: ReadonlyArray<UnlistedFile>
 }
@@ -145,7 +142,6 @@ export function buildPlan(input: {
       keep.push({
         path: track.relativePath,
         devicePath: prior.devicePath,
-        // A kept Transcode already sits on the Device at its real size.
         size: prior.transcodedSize ?? track.size,
         transcode: track.transcode,
         estimated: false,

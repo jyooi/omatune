@@ -21,7 +21,6 @@ export type SelectedTrack = {
   readonly tags: TrackTags
   readonly albumArtist: string
   readonly album: string
-  /** True when a Sync converts this Track on the way to the Device. */
   readonly transcode: boolean
 }
 
