@@ -74,10 +74,12 @@ export function firmwareProblems(db: Itunesdb): FirmwareProblem[] {
   return problems
 }
 
+/** True when the database breaks no rule. */
 export function firmwareReadable(db: Itunesdb): boolean {
   return firmwareProblems(db).length === 0
 }
 
+/** The four character code the firmware expects for a Device file extension. */
 export function fileTypeCodeFor(extension: string): string {
   const clean = extension.replace(/^\./u, "").toLowerCase()
   if (clean === "mp3") {
@@ -92,6 +94,7 @@ export function fileTypeCodeFor(extension: string): string {
   return "M4A "
 }
 
+/** The format byte pair that goes with a Device file extension. */
 export function formatBytesFor(extension: string): { type1: number, type2: number } {
   const clean = extension.replace(/^\./u, "").toLowerCase()
   if (clean === "mp3") {

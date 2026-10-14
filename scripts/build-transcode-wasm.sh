@@ -1,4 +1,20 @@
 #!/usr/bin/env bash
+#
+# Builds packages/transcode/src/wasm/transcode.wasm.
+#
+# The compiled module is committed, so this script runs only when the codec
+# sources or the glue change. A normal build, a normal test run, and CI never
+# need it. Read packages/transcode/src/wasm/PROVENANCE.md for what goes in.
+#
+# Every input is pinned by version and by checksum, so two runs of this script
+# on the same wasi-sdk produce the same module.
+#
+# Usage:
+#   scripts/build-transcode-wasm.sh
+#
+# The script downloads wasi-sdk, libFLAC, and Apple ALAC into a cache under
+# ${OMATUNE_WASM_CACHE:-$HOME/.cache/omatune-wasm}. It writes nothing outside
+# that cache and the repository.
 
 set -euo pipefail
 
@@ -48,6 +64,8 @@ fetch() {
   verify "$file" "$sum"
 }
 
+# The SDK carries its own clang and its own libc, so the module does not depend
+# on whichever compiler the host happens to have.
 SDK_DIR="$CACHE/wasi-sdk-${WASI_SDK_VERSION}-x86_64-linux"
 if [ -n "${WASI_SDK_DIR:-}" ]; then
   SDK_DIR="$WASI_SDK_DIR"
@@ -97,6 +115,8 @@ cp "$GLUE/flac-config.h" "$BUILD/flac-include/config.h"
 FLAC_INC="-I$BUILD/flac-include -I$FLAC_DIR/include -I$FLAC_SRC/include -DHAVE_CONFIG_H"
 
 note "Compiling libFLAC ${FLAC_VERSION} (decoder only)"
+# The decoder needs these translation units and no others. The encoder, the Ogg
+# layer, the metadata iterators, and the SIMD variants all stay out.
 for unit in bitmath bitreader cpu crc fixed float format lpc md5 memory stream_decoder window; do
   "$CC" $COMMON $FLAC_INC \
     -Wno-unused-parameter -Wno-sign-compare \

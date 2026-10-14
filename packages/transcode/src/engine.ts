@@ -16,6 +16,7 @@ export type AlacPacket = {
 }
 
 export type AlacStream = {
+  /** Sample rate, channel count, and depth of the FLAC source. */
   readonly sourceRate: number
   readonly sourceChannels: number
   readonly sourceBits: number
@@ -29,6 +30,7 @@ export type AlacStream = {
   readonly magicCookie: Uint8Array
   readonly packets: ReadonlyArray<AlacPacket>
   readonly frames: number
+  /** True when the output carries the source samples unchanged. */
   readonly bitPerfect: boolean
 }
 

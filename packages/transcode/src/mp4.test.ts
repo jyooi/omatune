@@ -93,6 +93,8 @@ test("a Track with no Artwork carries no cover atom", async () => {
 })
 
 test("gapless data reports the frame count with no codec delay", () => {
+  // The tag reader takes the delay, the padding, and the count from fields
+  // one, two, and three.
   const parts = itunSmpb(88200).trim().split(/\s+/)
   expect(parts).toHaveLength(12)
   expect(Number.parseInt(parts[1] ?? "", 16)).toBe(0)

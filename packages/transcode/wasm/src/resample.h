@@ -1,3 +1,11 @@
+/* Windowed-sinc resampler with TPDF dither.
+ *
+ * The resampler runs at one fixed quality. It has no tunable knobs, because
+ * the Transcode Cache keys on the module version and nothing else.
+ * Every result is deterministic: the filter table, the phase stepping, and
+ * the dither noise all come from fixed constants.
+ */
+
 #ifndef OMATUNE_RESAMPLE_H
 #define OMATUNE_RESAMPLE_H
 

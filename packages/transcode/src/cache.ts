@@ -4,10 +4,26 @@ import { homedir } from "node:os"
 import { join } from "node:path"
 import { TRANSCODE_MODULE_VERSION, type AudioCeiling } from "./engine.ts"
 
+/**
+ * The Transcode Cache: finished Transcodes kept on the host and reused across
+ * Syncs and Devices.
+ *
+ * The key covers the source content and every parameter that changes the
+ * output, the module version included. A change to any of them produces a new
+ * key, so a stale entry is never read back.
+ *
+ * Each entry is a pair. `<key>.m4a` holds the bytes and `<key>.json` records
+ * which Library file produced them and what the result hashes to. The sidecar
+ * is what lets a Sync prune an entry whose source left the Library without
+ * rehashing the whole Library, and what lets a cache hit fill in the Ledger
+ * without reading the bytes a second time.
+ */
+
 export type TranscodeCacheKeyInput = {
   /** sha256 of the source Track as it sits in the Library. */
   readonly sourceSha256: string
   readonly ceiling: AudioCeiling
+  /** Format pair the engine ran, for example `flac-alac`. */
   readonly conversion: string
 }
 
@@ -20,6 +36,7 @@ export type TranscodeCacheSource = {
 
 export type TranscodeCacheEntry = {
   readonly source: TranscodeCacheSource
+  /** Size and sha256 of the cached bytes, which the Ledger records. */
   readonly size: number
   readonly sha256: string
 }
@@ -34,6 +51,7 @@ export function transcodeCacheDir(env: NodeJS.ProcessEnv = process.env): string 
   return join(homedir(), ".cache", "omatune", "transcode")
 }
 
+/** Builds the cache key. Every field that changes the bytes goes in. */
 export function transcodeCacheKey(input: TranscodeCacheKeyInput): string {
   const parts = [
     `v${TRANSCODE_MODULE_VERSION}`,
@@ -45,6 +63,7 @@ export function transcodeCacheKey(input: TranscodeCacheKeyInput): string {
   return createHash("sha256").update(parts.join(" ")).digest("hex")
 }
 
+/* Two levels of fan-out keep any one directory small on a large Library. */
 export function transcodeCachePath(dir: string, key: string): string {
   return join(dir, key.slice(0, 2), `${key}.m4a`)
 }

@@ -1,3 +1,17 @@
+/*
+ * Synthetic CLASSIC_2 Fixture from the Verification Library.
+ *
+ * The writer builds iTunesDB, ArtworkDB, and ithmb files.
+ * Persistent ids come from a keyed hash of each Track path.
+ * Artwork pixels are a flat colour plus album index.
+ *
+ * The Fixture holds only the Tracks a Sync copies unchanged. A Transcode
+ * source such as FLAC reaches a Device as a different file, at a different
+ * size, under a different name, so its Library bytes describe nothing the
+ * firmware would ever read. Modelling that here would need the Transcode
+ * engine, and this package stays free of it.
+ */
+
 import { createHash, createHmac } from "node:crypto"
 import { mkdir } from "node:fs/promises"
 import { join } from "node:path"
@@ -40,6 +54,8 @@ const FOLDER_COUNT = 50
 const FIRST_IMAGE_ID = 0x64
 const CLASSIC_FAMILY = "iPod classic 120 GB (2008)"
 
+/* Codecs the stock firmware cannot read, which a Sync transcodes on the way
+ * to the Device. See `deviceExtensionFor` in packages/core. */
 const TRANSCODE_SOURCE_CODECS = new Set(["flac"])
 
 export type ManifestTrack = {
@@ -397,6 +413,7 @@ function mhypOf(name: string, items: Chunk[], persistentId: bigint): Chunk {
 function mhipOf(trackId: number): Chunk {
   const header = new Uint8Array(MHIP_HEADER)
   writeFourCc(header, 0, "mhip")
+  /* This mhip holds no child mhod, so the count stays 0. */
   writeU32(header, 12, 0)
   writeU32(header, 24, trackId)
   return { id: "mhip", header, children: [], body: empty(), padding: empty() }

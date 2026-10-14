@@ -1,3 +1,7 @@
+# Device Checklist. Source of truth for the "Device verification" GitHub issue form
+# and for the checklist table in the v1 spec. Edit it here only.
+# Run on the Verification Library in fixtures/audio/ after a typed-wipe sync on stock firmware.
+# Pass rule: every applicable item passes. Applicability is fixed per family below.
 items:
   - id: DC-01
     step: Eject after Sync, unplug, watch the Device

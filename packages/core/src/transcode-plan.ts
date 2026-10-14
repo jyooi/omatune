@@ -23,13 +23,22 @@ export const TRANSCODE_CEILING: AudioCeiling = {
  */
 export const TRANSCODE_SIZE_MARGIN = 0.15
 
+/** One source format the Transcode engine handles. */
 export type TranscodeRoute = {
   /** Library file extension, lower case and without the dot. */
   readonly from: string
+  /** Device file extension the Transcode writes. */
   readonly to: string
+  /** Cache key label for the format pair. */
   readonly conversion: string
 }
 
+/**
+ * The formats a Sync converts.
+ *
+ * v1 carries FLAC alone. The seam is a table so a second lossless source
+ * needs a row plus an engine, not a new shape.
+ */
 export const TRANSCODE_ROUTES: ReadonlyArray<TranscodeRoute> = [
   { from: "flac", to: "m4a", conversion: "flac-alac" },
 ]
@@ -43,6 +52,7 @@ export function isTranscodedExtension(extension: string): boolean {
   return transcodeRouteFor(extension) !== null
 }
 
+/** The extension the Device file carries for a Library file. */
 export function deviceExtensionFor(extension: string): string {
   return transcodeRouteFor(extension)?.to ?? extension.replace(/^\./, "").toLowerCase()
 }

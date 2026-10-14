@@ -1,5 +1,22 @@
 /**
+ * Linux Platform over the system D-Bus (udisks2) and udev.
+ *
+ * FireWire ID sources, in order:
+ * 1. SysInfoExtended field FirewireGuid (also FireWireGUID)
+ * 2. SysInfo field FirewireGuid when the value is not empty
+ * 3. udev ID_SERIAL_SHORT
+ *
+ * SysInfo (text, `Key: value` lines) fields we read:
+ * - FirewireGuid
+ * - ModelNumStr
+ *
+ * SysInfoExtended (Apple XML plist) fields we read:
+ * - FirewireGuid / FireWireGUID
+ * - ModelNumStr
+ *
+ * Those files live under iPod_Control/Device/ on the mounted volume.
  * ModelNumStr can be absent. SysInfo on the reference classic holds FirewireGuid only.
+ * Family lookup then uses the USB disk-mode product ID on DeviceInfo.
  */
 import { readdir, readFile } from "node:fs/promises"
 import { join } from "node:path"

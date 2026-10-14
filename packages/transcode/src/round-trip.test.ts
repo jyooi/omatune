@@ -5,6 +5,14 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { transcodeFlacToAlac } from "./transcode.ts"
 
+/**
+ * Proves the ALAC output is real audio by decoding it with an independent
+ * decoder and comparing the samples to the source.
+ *
+ * ffmpeg is the independent decoder. It is not a runtime dependency of
+ * omatune, so these tests state that plainly and skip when it is absent.
+ */
+
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))))
 const LIBRARY = join(ROOT, "fixtures", "audio", "library", "lossless-suite")
 const CEILING = { sampleRate: 48000, bitsPerSample: 16 }

@@ -37,6 +37,7 @@ export type Mp4Input = {
 
 const MOVIE_TIMESCALE = 1000
 
+/* iTunes data atom type codes. */
 const DATA_BINARY = 0
 const DATA_UTF8 = 1
 const DATA_JPEG = 13
@@ -90,6 +91,7 @@ function zeros(count: number): Uint8Array {
   return new Uint8Array(count)
 }
 
+/* The unity display matrix every audio-only file carries. */
 const UNITY_MATRIX = concat([
   u32(0x00010000),
   u32(0),

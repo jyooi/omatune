@@ -38,12 +38,12 @@ test("the magic cookie carries the ALAC config in big-endian order", async () =>
   const cookie = stream.magicCookie
   expect(cookie.length).toBe(24)
   const view = new DataView(cookie.buffer, cookie.byteOffset, cookie.byteLength)
-  expect(view.getUint32(0, false)).toBe(4096)
-  expect(cookie[4]).toBe(0)
-  expect(cookie[5]).toBe(16)
-  expect(cookie[9]).toBe(1)
-  expect(view.getUint32(12, false)).toBeGreaterThan(0)
-  expect(view.getUint32(20, false)).toBe(44100)
+  expect(view.getUint32(0, false)).toBe(4096) // frameLength
+  expect(cookie[4]).toBe(0) // compatibleVersion
+  expect(cookie[5]).toBe(16) // bitDepth
+  expect(cookie[9]).toBe(1) // numChannels
+  expect(view.getUint32(12, false)).toBeGreaterThan(0) // maxFrameBytes
+  expect(view.getUint32(20, false)).toBe(44100) // sampleRate
 })
 
 test("the same source and ceiling always produce the same packets", async () => {

@@ -1,3 +1,10 @@
+/* libFLAC build configuration for the wasm32 target.
+ *
+ * Upstream generates this file with autoconf or CMake from config.cmake.h.in.
+ * The wasm target is fixed, so the values are fixed too.
+ * Only the decoder is built, so the encoder and Ogg settings stay off.
+ */
+
 #ifndef OMATUNE_FLAC_CONFIG_H
 #define OMATUNE_FLAC_CONFIG_H
 

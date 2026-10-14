@@ -44,6 +44,7 @@ export function isFlac(bytes: Uint8Array): boolean {
   );
 }
 
+/* FLAC metadata block types this reader cares about. */
 const FLAC_STREAMINFO = 0;
 const FLAC_VORBIS_COMMENT = 4;
 const FLAC_PICTURE = 6;
@@ -55,6 +56,7 @@ export type FlacStreamInfo = {
   totalSamples: number;
 };
 
+/** Reads the STREAMINFO block, which every valid FLAC stream carries first. */
 export function readFlacStreamInfo(bytes: Uint8Array): FlacStreamInfo | null {
   for (const block of flacBlocks(bytes)) {
     if (block.type !== FLAC_STREAMINFO) {

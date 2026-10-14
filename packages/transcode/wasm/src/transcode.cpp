@@ -1,3 +1,15 @@
+/* omatune Transcode engine.
+ *
+ * One WebAssembly module carries the whole chain: a libFLAC decoder, the
+ * windowed-sinc resampler with dither, and Apple's ALAC encoder.
+ * The host drives it with three imports and reads back ALAC packets, so the
+ * module never touches a file, a clock, or the network.
+ *
+ * The module is deterministic. The same source bytes and the same ceiling
+ * always produce the same packets, which is what the Transcode Cache and the
+ * transcoded hash in the Ledger depend on.
+ */
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,10 +36,13 @@ void om_host_info(uint32_t in_rate, uint32_t in_channels, uint32_t in_bits, uint
                   uint32_t out_bits, uint32_t frames_per_packet, uint32_t source_frames_lo,
                   uint32_t source_frames_hi, const uint8_t *cookie, uint32_t cookie_len);
 
+/* Delivers one finished ALAC packet. */
 OM_IMPORT("packet") void om_host_packet(const uint8_t *data, uint32_t len, uint32_t frames);
 
 OM_EXPORT int32_t om_transcode(uint32_t ceiling_rate, uint32_t ceiling_bits);
 
+/* Scratch allocation for the host. The decoder allocates its own read buffer,
+ * so these exist only so the host can stage bytes when it needs to. */
 OM_EXPORT void *om_alloc(uint32_t size);
 OM_EXPORT void om_free(void *ptr);
 }
@@ -36,6 +51,7 @@ void *om_alloc(uint32_t size) { return malloc(size); }
 
 void om_free(void *ptr) { free(ptr); }
 
+/* Status codes the host maps onto messages. */
 enum {
   OM_OK = 0,
   OM_ERR_DECODER = -1,
@@ -90,7 +106,8 @@ struct Job {
 
 Job g_job;
 
-/* ALAC accepts these depths only. */
+/* ALAC accepts these depths only. A source below 16 bits is promoted, which
+ * stays lossless because the promotion is a left shift. */
 uint32_t alac_depth(uint32_t bits) {
   if (bits <= 16) {
     return 16;

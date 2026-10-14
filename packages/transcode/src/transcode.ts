@@ -15,6 +15,7 @@ export type TranscodeOutput = {
   readonly outputRate: number
   readonly outputBits: number
   readonly frames: number
+  /** True when the samples came through unchanged, with no resampling or dither. */
   readonly bitPerfect: boolean
 }
 
