@@ -1,5 +1,8 @@
 import wasmPath from "./wasm/transcode.wasm" with { type: "file" }
 
+/* Bumped whenever the module, the glue, or the resampler changes.
+ * The Transcode Cache key carries this value, so a bump retires every
+ * cached Transcode without any migration step. */
 export const TRANSCODE_MODULE_VERSION = 1
 
 export type AudioCeiling = {
@@ -79,6 +82,12 @@ function wasiStubs(): Record<string, (...args: number[]) => number> {
   }
 }
 
+/**
+ * Decodes one FLAC source and re-encodes it as ALAC packets.
+ *
+ * The engine downsamples and dithers only when the source is above the
+ * ceiling. A source at or below the ceiling comes back bit-perfect.
+ */
 export async function encodeFlacToAlac(
   source: Uint8Array,
   ceiling: AudioCeiling,

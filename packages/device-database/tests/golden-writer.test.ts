@@ -1,3 +1,17 @@
+/*
+ * Structural net for the writer against a genuine CLASSIC_2 Fixture.
+ *
+ * PR #22 already held media type, file type, format bytes, gapless flags,
+ * the master playlist flag, and mhod counts to firmwareProblems. This file
+ * is the remaining field-class net: section types 1, 2, and 3, the master
+ * playlist persistent id, and the mhbd hash slots.
+ *
+ * Comparison is structural. iTunes writes mhla and mhsd 5. omatune omits
+ * those on purpose, so this test must not demand them.
+ *
+ * The CLASSIC_2 Device Checklist is already complete (HUF-275).
+ */
+
 import { describe, expect, test } from "bun:test";
 import {
   HASH58_LENGTH,

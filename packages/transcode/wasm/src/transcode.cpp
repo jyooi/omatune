@@ -153,6 +153,8 @@ int ensure_interleaved(Job &job, uint32_t frames) {
   return 1;
 }
 
+/* Writes one sample as packed little-endian signed bytes, the layout the
+ * ALAC encoder expects for kALACFormatFlagIsPacked input. */
 void store_sample(uint8_t *dst, int32_t value, uint32_t bytes) {
   for (uint32_t i = 0; i < bytes; i++) {
     dst[i] = (uint8_t)((uint32_t)value >> (8 * i));
@@ -298,6 +300,8 @@ void metadata_cb(const FLAC__StreamDecoder *, const FLAC__StreamMetadata *metada
   job.in_format.mReserved = 0;
 
   job.pcm = (uint8_t *)malloc((size_t)job.frames_per_packet * frame_bytes);
+  /* The encoder can emit an escape packet slightly larger than its input, so
+   * the output buffer uses the encoder's own worst-case bound. */
   job.packet_cap = job.frames_per_packet * job.in_channels * ((10 + 32) / 8) + 1;
   job.packet = (uint8_t *)malloc(job.packet_cap);
   if (!job.pcm || !job.packet) {

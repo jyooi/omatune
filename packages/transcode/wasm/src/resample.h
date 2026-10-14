@@ -31,6 +31,8 @@ uint32_t om_resample_max_out(const OmResampler *self, uint32_t in_frames);
 uint32_t om_resample_push(OmResampler *self, const double *const *input, uint32_t in_frames,
                           int32_t *out, uint32_t out_capacity, int flush);
 
+/* Turns dither on. The caller enables it when the output is not an exact
+ * copy of the input samples, so a lossless path stays bit-perfect. */
 void om_resample_set_dither(OmResampler *self, int enabled, int32_t clip_min, int32_t clip_max);
 
 #ifdef __cplusplus

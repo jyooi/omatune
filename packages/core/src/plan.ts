@@ -15,6 +15,7 @@ export type PlannedTrack = {
   readonly devicePath: string
   readonly size: number
   readonly transcode: boolean
+  /** True when `size` is a budget estimate rather than a measured size. */
   readonly estimated: boolean
 }
 

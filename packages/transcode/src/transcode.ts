@@ -18,6 +18,12 @@ export type TranscodeOutput = {
   readonly bitPerfect: boolean
 }
 
+/**
+ * Turns one FLAC Track into an ALAC `.m4a` the iPod plays.
+ *
+ * The Library file never changes. Tags and Artwork carry over whole, so the
+ * result is a full citizen in the Device Database.
+ */
 export async function transcodeFlacToAlac(input: TranscodeInput): Promise<TranscodeOutput> {
   const stream = await encodeFlacToAlac(input.source, input.ceiling)
 

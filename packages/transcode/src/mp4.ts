@@ -1,3 +1,14 @@
+/**
+ * A minimal MPEG-4 muxer for ALAC audio.
+ *
+ * The output carries exactly what an iPod and the tag reader in
+ * `packages/core/src/tags.ts` need. That is one audio track with an `alac`
+ * sample entry, the sample tables, and the iTunes metadata atoms.
+ *
+ * Every field is fixed or derived from the input, so muxing the same stream
+ * twice produces the same bytes. The Transcode Cache depends on that.
+ */
+
 export type Mp4Tags = {
   readonly title: string | null
   readonly artist: string | null
@@ -289,6 +300,13 @@ function moov(input: Mp4Input, mdatOffset: number): Uint8Array {
   return box("moov", mvhd(durationMs), trak, udta(input))
 }
 
+/**
+ * Builds one `.m4a` file around the ALAC packets.
+ *
+ * The chunk offset table needs the size of `moov`, and `moov` holds that
+ * table, so the layout is built twice. The second pass changes only the
+ * offset value, which keeps the size identical.
+ */
 export function buildAlacM4a(input: Mp4Input): Uint8Array {
   const header = ftyp()
   const probe = moov(input, 0)

@@ -5,6 +5,7 @@ import { join } from "node:path"
 import { TRANSCODE_MODULE_VERSION, type AudioCeiling } from "./engine.ts"
 
 export type TranscodeCacheKeyInput = {
+  /** sha256 of the source Track as it sits in the Library. */
   readonly sourceSha256: string
   readonly ceiling: AudioCeiling
   readonly conversion: string
@@ -52,6 +53,12 @@ export function transcodeSourcePath(dir: string, key: string): string {
   return join(dir, key.slice(0, 2), `${key}.json`)
 }
 
+/**
+ * Reports what the cache holds for a key, without reading the audio.
+ *
+ * A hit answers with the size and the hash the Ledger needs.
+ * The copy step then reads the bytes exactly once, on its way to the Device.
+ */
 export async function lookupTranscodeCache(
   dir: string,
   key: string,
@@ -67,6 +74,7 @@ export async function lookupTranscodeCache(
     return null
   }
   const sidecar = await readSidecar(dir, key)
+  // Size disagreement means the pair drifted apart, so the entry is not usable.
   if (!sidecar || sidecar.size !== size) {
     return null
   }
@@ -103,6 +111,7 @@ async function readSidecar(dir: string, key: string): Promise<TranscodeCacheEntr
   return value
 }
 
+/** Writes through a temporary name so a stopped Sync leaves no partial entry. */
 export async function writeTranscodeCache(
   dir: string,
   key: string,
@@ -116,6 +125,7 @@ export async function writeTranscodeCache(
   }
   await mkdir(join(dir, key.slice(0, 2)), { recursive: true })
   await writeAtomic(transcodeSourcePath(dir, key), `${JSON.stringify(entry, null, 2)}\n`)
+  // The bytes land last, so a reader never finds an entry without its sidecar.
   await writeAtomic(transcodeCachePath(dir, key), bytes)
   return entry
 }
@@ -127,6 +137,13 @@ async function writeAtomic(path: string, data: string | Uint8Array): Promise<voi
 }
 
 /**
+ * Drops every entry whose source Track left the Library.
+ *
+ * Each Sync calls this once. The check reads the sidecar and asks whether the
+ * Library file it names is still there at the same size and time. A file that
+ * changed has a different content hash, so its entry has a different key and
+ * this entry is dead either way.
+ *
  * Returns the number of entries removed.
  */
 export async function pruneTranscodeCache(dir: string): Promise<number> {

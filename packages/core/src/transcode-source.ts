@@ -23,6 +23,13 @@ export type MaterialiseInput = {
   readonly cacheDir: string
 }
 
+/**
+ * Produces the file the copy step reads for one add.
+ *
+ * A Track that needs no Transcode reports its Library file untouched. A Track
+ * that needs one comes back from the Transcode Cache, or gets transcoded into
+ * the cache first. The Library file never changes either way.
+ */
 export async function materialiseAdd(input: MaterialiseInput): Promise<AddSource> {
   const route = transcodeRouteFor(input.track.extension)
   const libraryFile = join(input.libraryRoot, input.track.relativePath)
