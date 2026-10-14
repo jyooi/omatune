@@ -4,21 +4,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Half the filter length at a ratio of one, in input samples.
- * Downsampling widens the kernel by the inverse of the ratio. */
 #define OM_HALF_TAPS 40
 
-/* Kaiser window beta. 11.0 puts the stopband near -110 dB, which sits
- * below the noise floor of the 16-bit output. */
 #define OM_KAISER_BETA 11.0
 
-/* Prototype filter oversampling. The phase index takes the top bits of the
- * 32-bit fraction and the rest drives linear interpolation between taps. */
 #define OM_PHASE_BITS 9
 #define OM_PHASES (1 << OM_PHASE_BITS)
 
-/* Fraction of the output Nyquist the passband keeps. The remainder is the
- * transition band, which the Kaiser window needs to reach the stopband. */
 #define OM_CUTOFF_SCALE 0.92
 
 #define OM_PI 3.14159265358979323846
@@ -29,14 +21,11 @@ struct OmResampler {
   uint32_t out_rate;
   int passthrough;
 
-  /* Prototype filter sampled every 1/OM_PHASES input samples.
-   * table[i] holds h(i / OM_PHASES - half_width). */
   double *table;
   uint32_t table_len;
-  uint32_t half_width; /* kernel half width in whole input samples */
-  uint32_t taps;       /* half_width * 2 */
+  uint32_t half_width;
+  uint32_t taps;
 
-  /* 32.32 fixed point position of the next output sample, in buffer frames. */
   uint64_t pos;
   uint64_t step;
 
@@ -51,7 +40,6 @@ struct OmResampler {
 };
 
 static double om_bessel_i0(double x) {
-  /* Series expansion. It converges quickly over the range a Kaiser window uses. */
   double sum = 1.0;
   double term = 1.0;
   for (int k = 1; k < 64; k++) {
@@ -82,16 +70,12 @@ static uint32_t om_next_random(OmResampler *self) {
   return x;
 }
 
-/* One uniform sample in [-0.5, 0.5). */
 static double om_uniform(OmResampler *self) {
   return ((double)om_next_random(self) / 4294967296.0) - 0.5;
 }
 
 static int32_t om_quantise(OmResampler *self, double value) {
   if (self->dither) {
-    /* Triangular probability density from two independent uniform draws.
-     * TPDF removes both the quantisation distortion and the noise modulation
-     * that a flat rectangular dither leaves behind. */
     value += om_uniform(self) + om_uniform(self);
   }
   double rounded = floor(value + 0.5);
@@ -107,8 +91,6 @@ static int32_t om_quantise(OmResampler *self, double value) {
 static int om_build_table(OmResampler *self) {
   double ratio = (double)self->out_rate / (double)self->in_rate;
   double kernel_scale = ratio < 1.0 ? ratio : 1.0;
-  /* Widening the kernel when downsampling keeps the transition band the same
-   * fraction of the lowered Nyquist. */
   double half = (double)OM_HALF_TAPS / kernel_scale;
   self->half_width = (uint32_t)ceil(half);
   self->taps = self->half_width * 2;
@@ -165,8 +147,6 @@ OmResampler *om_resample_new(uint32_t in_rate, uint32_t out_rate, uint32_t chann
   self->passthrough = in_rate == out_rate;
   self->clip_min = -32768;
   self->clip_max = 32767;
-  /* A fixed seed keeps every Transcode of the same source byte-identical,
-   * which the Transcode Cache and the Ledger hash both rely on. */
   self->rng = 0x9e3779b9u;
 
   if (self->passthrough) {
@@ -184,8 +164,6 @@ OmResampler *om_resample_new(uint32_t in_rate, uint32_t out_rate, uint32_t chann
     om_resample_free(self);
     return NULL;
   }
-  /* The leading zeros let the first output sample sit at input time zero,
-   * so the filter adds no latency the caller has to trim. */
   for (uint32_t ch = 0; ch < channels; ch++) {
     memset(self->buf[ch], 0, (size_t)self->half_width * sizeof(double));
   }
@@ -218,12 +196,6 @@ uint32_t om_resample_max_out(const OmResampler *self, uint32_t in_frames) {
   return (uint32_t)scaled + self->half_width * 2 + 4;
 }
 
-/* Emits every output sample whose kernel fits inside the buffered input.
- *
- * Output sample n sits at buffer position p. Its value is the sum over input
- * index m of x[m] * h(p - m), for m from floor(p) - half_width + 1 to
- * floor(p) + half_width. The table holds h sampled at 1/OM_PHASES steps,
- * so tap k reads table index (taps - 1 - k) * OM_PHASES + fraction. */
 static uint32_t om_drain(OmResampler *self, int32_t *out, uint32_t out_capacity) {
   uint32_t taps = self->taps;
   uint32_t channels = self->channels;
@@ -258,7 +230,6 @@ static uint32_t om_drain(OmResampler *self, int32_t *out, uint32_t out_capacity)
     self->pos += self->step;
   }
 
-  /* Keep half_width frames of history before the next output position. */
   uint64_t index = self->pos >> 32;
   if (index > self->half_width) {
     uint32_t drop = (uint32_t)index - self->half_width;
@@ -291,7 +262,6 @@ uint32_t om_resample_push(OmResampler *self, const double *const *input, uint32_
     return frames;
   }
 
-  /* The flush pass appends the zeros the kernel needs to reach the last sample. */
   uint32_t tail = flush ? self->half_width + 1 : 0;
   if (!om_grow(self, self->buf_len + in_frames + tail)) {
     return 0;

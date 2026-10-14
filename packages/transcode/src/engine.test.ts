@@ -30,7 +30,6 @@ test("a source above the ceiling comes down to it", async () => {
   expect(stream.outputRate).toBe(48000)
   expect(stream.outputBits).toBe(16)
   expect(stream.bitPerfect).toBe(false)
-  // Half the rate means half the frames, and no filter tail beyond them.
   expect(stream.frames).toBe(stream.sourceFrames / 2)
 })
 
@@ -61,7 +60,6 @@ test("the same source and ceiling always produce the same packets", async () => 
 test("a damaged stream reports a Transcode error instead of writing audio", async () => {
   const source = fixture("01-standard.flac")
   const damaged = Uint8Array.from(source)
-  // Overwrite well past the headers so the decoder reaches a bad frame.
   damaged.fill(0xff, Math.floor(damaged.length / 2), damaged.length - 16)
   await expect(encodeFlacToAlac(damaged, CEILING)).rejects.toBeInstanceOf(TranscodeError)
 })

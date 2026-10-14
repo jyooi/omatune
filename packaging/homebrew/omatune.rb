@@ -1,4 +1,3 @@
-# Template. Set version, url, and sha256 on publish.
 class Omatune < Formula
   desc "Open-source music sync for iPods"
   homepage "https://github.com/jyooi/omatune"

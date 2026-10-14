@@ -487,9 +487,6 @@ async function runPipeline(
     }
     let copied = 0
     let bytesDone = 0
-    /* The Plan budgets a Transcode by estimate. Each real size replaces its
-     * estimate here, so the progress total lands on the bytes actually
-     * written instead of drifting away from them. */
     let bytesTotal = ctx.plan.bytesNeeded
     const presentAdds: PlannedTrack[] = []
     const extraSkipped: SkippedTrack[] = []
@@ -528,8 +525,6 @@ async function runPipeline(
                 cached: false,
               }
         } catch (cause) {
-          /* A Track the engine refuses is Skipped with a reason, the same way
-           * an unreadable tag is. One bad Track never stops the Sync. */
           extraSkipped.push({ path: track.path, reason: "transcode_failed" })
           await emit({
             type: "message",
@@ -618,8 +613,6 @@ async function runPipeline(
     await emitPhase(emit, "database", 1, 1, 1, 1, null)
   }
 
-  /* Every Sync prunes the Transcode Cache once, after the Device work is
-   * done, so a slow prune never delays the Commit point. */
   await pruneTranscodeCache(transcodeCacheDir())
 
   const ejected = !request.noEject
@@ -720,8 +713,6 @@ function buildNextLedger(
     const prior = priorByPath.get(planned.path)
     const sha256 = hashes.get(planned.path) ?? prior?.sha256 ?? ""
     const host = playData.tracks[sha256]
-    /* A kept Transcode carries its numbers forward, because a keep never
-     * re-runs the engine. */
     const transcode = transcoded.get(planned.path) ??
       (prior?.transcodedSize !== undefined && prior.transcodedSha256 !== undefined
         ? { size: prior.transcodedSize, sha256: prior.transcodedSha256 }

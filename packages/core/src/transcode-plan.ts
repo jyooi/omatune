@@ -60,7 +60,7 @@ export function deviceExtensionFor(extension: string): string {
 /**
  * The size a Sync Plan budgets for one transcoded add.
  *
- * The real size is unknown until the Transcode runs, so the Plan reserves the
+ * The real size is unknown until the Transcode runs. The Plan reserves the
  * source size plus the margin and marks the number as an estimate.
  */
 export function estimatedTranscodedSize(sourceSize: number): number {

@@ -46,7 +46,6 @@ export function formatPlanText(plan: SyncPlan, listUnlisted = false): string {
     `Play Counts pending: ${plan.playCountsPending}`,
   ]
   if (plan.transcodeCount > 0) {
-    // The sizes of these adds are estimates until the Transcode runs.
     lines.push(`Transcoded: ${plan.transcodeCount} (sizes are estimates)`)
   }
   if (plan.forceModel) {

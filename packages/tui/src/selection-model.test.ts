@@ -140,7 +140,6 @@ test("plan summary reports add remove bytes and fit", () => {
 test("mirror Album count includes only plan add and keep Tracks", () => {
   const mixed: ScannedFile[] = [
     file("Radiohead/Kid A/01 Everything In Its Right Place.mp3", 6_000_000, kida),
-    // An unstorable name stays Skipped, so the Album count must leave it out.
     file("Radiohead/Kid A/CON.mp3", 6_000_000, { ...kida, title: "Everything Reserved" }),
   ]
   const artists = groupLibrary(mixed)

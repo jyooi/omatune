@@ -64,10 +64,8 @@ fetch() {
   verify "$file" "$sum"
 }
 
-# --- wasi-sdk ---------------------------------------------------------------
 # The SDK carries its own clang and its own libc, so the module does not depend
 # on whichever compiler the host happens to have.
-
 SDK_DIR="$CACHE/wasi-sdk-${WASI_SDK_VERSION}-x86_64-linux"
 if [ -n "${WASI_SDK_DIR:-}" ]; then
   SDK_DIR="$WASI_SDK_DIR"
@@ -84,8 +82,6 @@ if [ ! -x "$CC" ]; then
   note "wasi-sdk clang is missing at $CC"
   exit 1
 fi
-
-# --- sources ----------------------------------------------------------------
 
 FLAC_DIR="$CACHE/flac-${FLAC_VERSION}"
 if [ ! -d "$FLAC_DIR" ]; then
@@ -105,8 +101,6 @@ fi
 
 FLAC_SRC="$FLAC_DIR/src/libFLAC"
 ALAC_SRC="$ALAC_DIR/codec"
-
-# --- compile ----------------------------------------------------------------
 
 TARGET="--target=wasm32-wasip1"
 # -O3 for the inner loops, -ffp-contract=off so the resampler produces the same

@@ -58,8 +58,6 @@ test("scanner reads mp3, m4a, and flac tags from the Verification Library", asyn
   const uncovered = byPath.get("tone-suite/05-uncovered.mp3")
   expect(uncovered?.tags?.artworkBytes).toBeNull()
 
-  // FLAC joined the supported set, so the scanner reads its Vorbis comments
-  // and its picture block.
   const flac = byPath.get("lossless-suite/01-standard.flac")
   expect(flac?.tags?.codec).toBe("flac")
   expect(flac?.tags?.title).toBe("Standard")

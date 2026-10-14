@@ -94,7 +94,6 @@ test("a transcoded add takes an m4a Device path built from the source hash", () 
   expect(plan.add).toHaveLength(1)
   const add = plan.add[0]
   expect(add?.devicePath).toEndWith(".m4a")
-  // Identity stays with the source, so the file name is the source hash.
   expect(add?.devicePath).toContain(hash.slice(0, 16))
   expect(add?.transcode).toBe(true)
   expect(add?.estimated).toBe(true)

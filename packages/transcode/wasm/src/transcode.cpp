@@ -76,7 +76,6 @@ struct Job {
   uint32_t bytes_per_sample = 0;
   uint32_t frames_per_packet = kALACDefaultFramesPerPacket;
 
-  /* The ceiling arrives per call, so the constant stays in core. */
   uint32_t ceiling_rate = 0;
   uint32_t ceiling_bits = 0;
 
@@ -84,26 +83,21 @@ struct Job {
   int32_t clip_min = 0;
   int32_t clip_max = 0;
 
-  /* Planar decode staging, one buffer per channel. */
   double *plane[OM_MAX_CHANNELS] = {nullptr};
   uint32_t plane_cap = 0;
 
-  /* Interleaved resampler output, then packed into pcm for the encoder. */
   int32_t *interleaved = nullptr;
   uint32_t interleaved_cap = 0;
 
-  uint8_t *pcm = nullptr;       /* one full packet of packed samples */
-  uint32_t pcm_frames = 0;      /* frames currently held in pcm */
-  uint8_t *packet = nullptr;    /* encoder output */
+  uint8_t *pcm = nullptr;
+  uint32_t pcm_frames = 0;
+  uint8_t *packet = nullptr;
   uint32_t packet_cap = 0;
 
   AudioFormatDescription in_format = {};
   AudioFormatDescription out_format = {};
 
   uint64_t source_frames = 0;
-  /* Exact output frame count derived from the source. The filter tail can run
-   * a sample or two past it, and those samples are dropped so the file holds
-   * exactly the audio the source did. Zero means the source declared none. */
   uint64_t expected_frames = 0;
   uint64_t emitted_frames = 0;
   int32_t status = OM_OK;
@@ -184,7 +178,6 @@ void store_sample(uint8_t *dst, int32_t value, uint32_t bytes) {
   }
 }
 
-/* Encodes and emits one packet, then clears the staging buffer. */
 int32_t flush_packet(Job &job) {
   if (job.pcm_frames == 0) {
     return OM_OK;
@@ -199,7 +192,6 @@ int32_t flush_packet(Job &job) {
   return OM_OK;
 }
 
-/* Moves interleaved output into packet-sized groups for the encoder. */
 int32_t push_frames(Job &job, const int32_t *frames, uint32_t count) {
   uint32_t channels = job.in_channels;
   if (job.expected_frames > 0) {
@@ -272,8 +264,6 @@ void metadata_cb(const FLAC__StreamDecoder *, const FLAC__StreamMetadata *metada
   job.out_bits = alac_depth(job.in_bits < job.ceiling_bits ? job.in_bits : job.ceiling_bits);
   job.bytes_per_sample = (job.out_bits + 7) / 8;
 
-  /* Samples move into output least-significant-bit units before the filter,
-   * so the resampler and the dither both work in the final scale. */
   if (job.in_bits >= job.out_bits) {
     job.scale = 1.0 / (double)((uint32_t)1 << (job.in_bits - job.out_bits));
   } else {
@@ -287,8 +277,6 @@ void metadata_cb(const FLAC__StreamDecoder *, const FLAC__StreamMetadata *metada
     job.status = OM_ERR_MEMORY;
     return;
   }
-  /* A stream that keeps its rate and its depth stays bit-perfect, so it takes
-   * no dither. Any resampling or any depth reduction needs it. */
   int lossless = job.in_rate == job.out_rate && job.in_bits <= job.out_bits;
   om_resample_set_dither(job.resampler, lossless ? 0 : 1, job.clip_min, job.clip_max);
 
@@ -340,7 +328,6 @@ void metadata_cb(const FLAC__StreamDecoder *, const FLAC__StreamMetadata *metada
 
   job.source_frames = info.total_samples;
   if (job.source_frames > 0) {
-    /* Round up so a rate change that lands between samples keeps the last one. */
     uint64_t scaled = job.source_frames * (uint64_t)job.out_rate;
     job.expected_frames = (scaled + job.in_rate - 1) / (uint64_t)job.in_rate;
   }
@@ -408,7 +395,7 @@ void error_cb(const FLAC__StreamDecoder *, FLAC__StreamDecoderErrorStatus, void 
   }
 }
 
-} // namespace
+}
 
 int32_t om_transcode(uint32_t ceiling_rate, uint32_t ceiling_bits) {
   job_reset(g_job);
@@ -441,7 +428,6 @@ int32_t om_transcode(uint32_t ceiling_rate, uint32_t ceiling_bits) {
   }
 
   if (result == OM_OK) {
-    /* Drain the filter tail, then emit the final short packet. */
     uint32_t capacity = om_resample_max_out(g_job.resampler, 0) + g_job.frames_per_packet;
     if (ensure_interleaved(g_job, capacity)) {
       uint32_t produced = om_resample_push(g_job.resampler, (const double *const *)g_job.plane, 0,

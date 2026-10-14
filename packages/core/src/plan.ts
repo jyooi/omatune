@@ -145,7 +145,6 @@ export function buildPlan(input: {
       keep.push({
         path: track.relativePath,
         devicePath: prior.devicePath,
-        // A kept Transcode already sits on the Device at its real size.
         size: prior.transcodedSize ?? track.size,
         transcode: track.transcode,
         estimated: false,

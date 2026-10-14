@@ -75,8 +75,8 @@ export function transcodeSourcePath(dir: string, key: string): string {
 /**
  * Reports what the cache holds for a key, without reading the audio.
  *
- * A hit answers with the size and the hash the Ledger needs, so the copy step
- * reads the bytes exactly once, on its way to the Device.
+ * A hit answers with the size and the hash the Ledger needs.
+ * The copy step then reads the bytes exactly once, on its way to the Device.
  */
 export async function lookupTranscodeCache(
   dir: string,
@@ -183,7 +183,6 @@ export async function pruneTranscodeCache(dir: string): Promise<number> {
     for (const entry of entries) {
       const path = join(dir, bucket, entry)
       if (entry.endsWith(".tmp")) {
-        // A leftover from a stopped Sync is not an entry.
         await removeQuiet(path)
         continue
       }
@@ -204,7 +203,6 @@ export async function pruneTranscodeCache(dir: string): Promise<number> {
 }
 
 async function sourceIsLive(dir: string, key: string): Promise<boolean> {
-  // An entry with no readable sidecar cannot be traced to a Library file.
   const entry = await readSidecar(dir, key)
   if (!entry) {
     return false

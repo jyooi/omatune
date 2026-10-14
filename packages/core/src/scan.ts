@@ -22,13 +22,6 @@ export type LibraryScan = {
 
 const SUPPORTED_EXTENSIONS = new Set(["mp3", "m4a", "flac"])
 
-/*
- * Companion files stay silent so Unlisted stays signal.
- * Images: jpg, jpeg, png, gif, webp, bmp, tif, tiff.
- * Notes: txt, md, nfo, cue, log, pdf.
- * Playlists: m3u, m3u8, pls.
- * Hidden: a path component that starts with a dot.
- */
 const COMPANION_EXTENSIONS = new Set([
   "jpg",
   "jpeg",
