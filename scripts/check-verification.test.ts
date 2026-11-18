@@ -195,21 +195,31 @@ describe("branch name of a change", () => {
     expect(await currentBranch(root)).toBe(branch)
   })
 
-  test("is unknown when several branches point at a detached HEAD", async () => {
+  test("is the one branch behind a detached HEAD with later commits", async () => {
+    commit({ "README.md": "two\n" })
+    git("checkout", "-q", "--detach")
+    commit({ "README.md": "three\n" })
+    expect(await currentBranch(root)).toBe(branch)
+  })
+
+  test("is unknown when several branches are behind a detached HEAD", async () => {
+    commit({ "README.md": "two\n" })
+    git("checkout", "-q", "-b", "feature/y")
+    commit({ "README.md": "three\n" })
     git("checkout", "-q", "--detach")
     expect(await currentBranch(root)).toBeUndefined()
   })
 
-  test("is unknown when no branch points at a detached HEAD", async () => {
-    commit({ "README.md": "two\n" })
+  test("is unknown when only branches on origin/main are behind a detached HEAD", async () => {
     git("checkout", "-q", "--detach")
-    commit({ "README.md": "three\n" })
+    commit({ "README.md": "two\n" })
     expect(await currentBranch(root)).toBeUndefined()
   })
 
   test("makes a detached HEAD fail with a chart file not named by the branch", async () => {
     commit({ [`${skill}/charts/other.md`]: "No state change: docs.\n" })
     git("checkout", "-q", "--detach")
+    commit({ "README.md": "two\n" })
     expect(await checkChart(root, record, await currentBranch(root))).toEqual([
       `The change adds no state chart file ${chartPath} for the branch ${branch}. Follow the verify-read-back skill to add one.`,
     ])

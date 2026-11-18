@@ -182,7 +182,16 @@ export async function currentBranch(root: string): Promise<string | undefined> {
     return await git(root, "symbolic-ref", "--short", "-q", "HEAD")
   } catch {
     const branches = (
-      await git(root, "for-each-ref", "--points-at", "HEAD", "--format=%(refname:short)", "refs/heads/")
+      await git(
+        root,
+        "for-each-ref",
+        "--merged",
+        "HEAD",
+        "--no-merged",
+        defaultBranch,
+        "--format=%(refname:short)",
+        "refs/heads/",
+      )
     )
       .split("\n")
       .filter((name) => name !== "")

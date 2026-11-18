@@ -50,7 +50,8 @@ The check finds the change from the merge base of `HEAD` and `origin/main` to `H
 It reads the committed files, so commit the chart file and its image before you run it.
 It does not check cases 5 to 9 when `HEAD` has no change from `origin/main`, for example on `main`.
 It gets the branch name from `GITHUB_HEAD_REF` in CI, or from the branch that you checked out.
-On a detached `HEAD` with no branch name, it accepts each chart file that the change adds.
+On a detached `HEAD`, it uses the one local branch that is in the history of `HEAD` and is not in `origin/main`.
+When no such branch or more than one such branch exists, it accepts each chart file that the change adds.
 
 ## Tell if a change touches verified code
 
