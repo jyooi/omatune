@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="pele pele-state" viewBox="0 0 1357 975" width="1357" height="975" style="max-width:100%;height:auto;--_bg:var(--pele-bg,#fff);--_fg:var(--pele-fg,#1f1f1f);--_m:var(--pele-muted,#6e6e6e);--_l:var(--pele-line,#1f1f1f);--_s:var(--pele-surface,#f3f3f3);--_a:var(--pele-surface-alt,#e6e6e6);--_b:var(--pele-border,#8a8a8a);--_c:var(--pele-accent,#5b7bd5);color:var(--_fg);--_tw:var(--pele-title-weight,bold);--_fm:var(--pele-font-mono,monospace);font:16px sans-serif;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;font-family:var(--pele-font,sans-serif)" fill="var(--_fg)" role="graphics-document document" aria-roledescription="state"><desc>Chart digest: 6c576b44420b17db9a0c42865ee63392ddaa4f1c22450d58084c2ba4e0a05310</desc><style>
+.pele {
+  --pele-bg: #ffffff;
+  --pele-fg: #1c1c1c;
+  --pele-muted: #656565;
+  --pele-line: #808080;
+  --pele-surface: #fcfcfc;
+  --pele-surface-alt: #f1f1f1;
+  --pele-border: #c9c9c9;
+}
+.pele .blue rect { fill: #c3e0ff; }
+.pele .orange rect { fill: #f0d3bf; }
+.pele .purple rect { fill: #e3d5ff; }
+.pele .yellow rect { fill: #f0dcbf; }
+.pele .teal rect { fill: #bfe3df; }
+.pele .tan rect { fill: #e5d9ce; }
+.pele .pink rect { fill: #ffcbe6; }
+.pele .breaks rect {
+  fill: #ffecee !important;
+  stroke: #e72e3b !important;
+  stroke-width: 2.5px !important;
+}
+.pele .breaks text {
+  fill: #cd2834 !important;
+}
+.pele .mayBreak rect {
+  fill: #fff3e6 !important;
+  stroke: #e8730c !important;
+  stroke-width: 2.5px !important;
+}
+.pele .mayBreak text {
+  fill: #b85a06 !important;
+}
+.pele .bugPath rect {
+  stroke: #1680f3 !important;
+  stroke-width: 2.5px !important;
+}
+.pele .repeats rect {
+  stroke: #9b35d6 !important;
+  stroke-width: 2.5px !important;
+  stroke-dasharray: 6 3;
+}
+@media (prefers-color-scheme: dark) {
+  .pele {
+    --pele-bg: #1f1f1f;
+    --pele-fg: #f5f5f5;
+    --pele-muted: #acacac;
+    --pele-line: #939393;
+    --pele-surface: #121212;
+    --pele-surface-alt: #2c2c2c;
+    --pele-border: #4e4e4e;
+  }
+  .pele .blue rect { fill: #1b3857; }
+  .pele .orange rect { fill: #573117; }
+  .pele .purple rect { fill: #3c2e57; }
+  .pele .yellow rect { fill: #573d17; }
+  .pele .teal rect { fill: #174641; }
+  .pele .tan rect { fill: #3d3127; }
+  .pele .pink rect { fill: #57233e; }
+  .pele .breaks rect {
+    fill: #2e2021 !important;
+    stroke: #cf2b35 !important;
+  }
+  .pele .breaks text {
+    fill: #ff6463 !important;
+  }
+  .pele .mayBreak rect {
+    fill: #2e2619 !important;
+    stroke: #d0700f !important;
+  }
+  .pele .mayBreak text {
+    fill: #ffa257 !important;
+  }
+  .pele .bugPath rect {
+    stroke: #116dd2 !important;
+  }
+  .pele .repeats rect {
+    stroke: #9a3fcf !important;
+  }
+}
+</style><text class="pele-title" font-weight="var(--_tw)" text-anchor="middle" xml:space="preserve"><tspan x="678.5" y="25.6">Play Counts through a Sync that can stop</tspan></text><g transform="translate(0,36)"><g class="pele-clusters"><g class="pele-cluster pele-state-composite" data-id="legend"><rect x="382.69" y="8" width="965.54" height="151" rx="10" fill="var(--_a)" fill-opacity="0.5" stroke="var(--_b)"/><path d="M382.69,44H1348.23" fill="none" stroke="var(--_b)"/><text class="pele-cluster-label" x="865.46" y="31.6" text-anchor="middle">Legend</text></g></g><g class="pele-edges" fill="none" stroke="var(--_l)" stroke-linecap="round"><g class="pele-edge pele-transition" data-id="edge0"><path d="M335.69,159L335.69,196"/><path class="pele-marker" d="M335.69,203L332.33,195L339.05,195Z" fill="var(--_l)" stroke="none"/></g><g class="pele-edge pele-transition" data-id="edge1"><path d="M382.84,247L382.84,260C382.84,312.75 494.99,312.75 494.99,365.5L494.99,458C494.99,466.89 722.85,471.61 722.85,480.5L722.85,486.5"/><path class="pele-marker" d="M722.85,493.5L719.49,485.5L726.21,485.5Z" fill="var(--_l)" stroke="none"/></g><g class="pele-edge pele-transition" data-id="edge2"><path d="M398.84,247L398.84,260C398.84,276.74 461.89,287 564.77,287C667.64,287 730.69,297.64 730.69,315L730.69,358.5"/><path class="pele-marker" d="M730.69,365.5L727.33,357.5L734.05,357.5Z" fill="var(--_l)" stroke="none"/></g><g class="pele-edge pele-transition" data-id="edge3"><path d="M723.01,555.5L723.01,563.59C723.01,566.2 443.1,571.4 443.1,574L443.1,599C443.1,602.47 213.01,609.41 213.01,612.88L213.01,617.5"/><path class="pele-marker" d="M213.01,624.5L209.65,616.5L216.37,616.5Z" fill="var(--_l)" stroke="none"/></g><g class="pele-edge pele-transition" data-id="edge4"><path d="M827.07,493.5L827.07,480.5C827.07,469.25 914.63,469.25 914.63,458L914.63,321.25C914.63,292.58 819.67,275 664.74,275C509.8,275 414.84,269.02 414.84,259.25L414.84,254"/><path class="pele-marker" d="M414.84,247L418.2,255L411.48,255Z" fill="var(--_l)" stroke="none"/></g><g class="pele-edge pele-transition" data-id="edge5"><path d="M730.69,409.5L730.69,468C730.69,474.94 738.85,474.94 738.85,481.88L738.85,486.5"/><path class="pele-marker" d="M738.85,493.5L735.49,485.5L742.21,485.5Z" fill="var(--_l)" stroke="none"/></g><g class="pele-edge pele-transition" data-id="edge6"><path d="M180.11,624.5L180.11,365.5C180.11,312.75 272.54,312.75 272.54,260L272.54,254"/><path class="pele-marker" d="M272.54,247L275.9,255L269.18,255Z" fill="var(--_l)" stroke="none"/></g><g class="pele-edge pele-transition" data-id="edge7"><path d="M163.2,668.5C163.2,677.75 105.43,677.75 105.43,687L105.43,712C105.43,722.75 223.1,722.75 223.1,733.5L223.1,739.5"/><path class="pele-marker" d="M223.1,746.5L219.74,738.5L226.46,738.5Z" fill="var(--_l)" stroke="none"/></g><g class="pele-edge pele-transition" data-id="edge8"><path d="M739.01,555.5L739.01,568.5C739.01,596.5 631.27,596.5 631.27,624.5L631.27,730.5"/><path class="pele-marker" d="M631.27,737.5L627.91,729.5L634.63,729.5Z" fill="var(--_l)" stroke="none"/></g><g class="pele-edge pele-transition" data-id="edge9"><path d="M294.29,746.5L294.29,733.5C294.29,719.63 337.29,719.63 337.29,705.75L337.29,254"/><path class="pele-marker" d="M337.29,247L340.65,255L333.93,255Z" fill="var(--_l)" stroke="none"/></g><g class="pele-edge pele-transition" data-id="edge10"><path d="M213.01,668.5C213.01,677.75 270.78,677.75 270.78,687L270.78,712C270.78,715.47 589.02,722.41 589.02,725.88L589.02,730.5"/><path class="pele-marker" d="M589.02,737.5L585.66,729.5L592.38,729.5Z" fill="var(--_l)" stroke="none"/></g><g class="pele-edge pele-transition" data-id="edge11"><path d="M673.53,737.5L673.53,724.5C673.53,696.5 794.28,696.5 794.28,668.5L794.28,562.5"/><path class="pele-marker" d="M794.28,555.5L797.64,563.5L790.92,563.5Z" fill="var(--_l)" stroke="none"/></g><g class="pele-edge pele-transition" data-id="edge12"><path d="M631.27,799.5L631.27,843C631.27,849.94 679.07,849.94 679.07,856.88L679.07,861.5"/><path class="pele-marker" d="M679.07,868.5L675.71,860.5L682.43,860.5Z" fill="var(--_l)" stroke="none"/></g><g class="pele-edge pele-transition" data-id="edge13"><path d="M800.06,868.5L800.06,855.5C800.06,827.5 897.38,827.5 897.38,799.5L897.38,624.5C897.38,596.5 827.07,596.5 827.07,568.5L827.07,562.5"/><path class="pele-marker" d="M827.07,555.5L830.43,563.5L823.71,563.5Z" fill="var(--_l)" stroke="none"/></g></g><g class="pele-edge-labels" font-size="14"><g class="pele-edge-label" data-id="edge1"><rect x="393.33" y="369.5" width="203.33" height="36" rx="3" fill="var(--_bg)"/><text text-anchor="middle" xml:space="preserve"><tspan x="494.99" y="383.4">you start a Sync, and it finds no</tspan><tspan x="494.99" y="401.4">Play Counts</tspan></text></g><g class="pele-edge-label" data-id="edge2"><rect x="675.33" y="317" width="110.7" height="21" rx="3" fill="var(--_bg)"/><text x="730.69" y="332.4" text-anchor="middle">you play a Track</text></g><g class="pele-edge-label" data-id="edge3"><rect x="347.29" y="576" width="191.62" height="21" rx="3" fill="var(--_bg)"/><text x="443.1" y="591.4" text-anchor="middle">the Sync writes the iTunesDB</text></g><g class="pele-edge-label" data-id="edge4"><rect x="864.72" y="377" width="99.83" height="21" rx="3" fill="var(--_bg)"/><text x="914.63" y="392.4" text-anchor="middle">the Sync stops</text></g><g class="pele-edge-label" data-id="edge5"><rect x="638.36" y="430" width="184.65" height="36" rx="3" fill="var(--_bg)"/><text text-anchor="middle" xml:space="preserve"><tspan x="730.69" y="443.9">you start a Sync, and it adds</tspan><tspan x="730.69" y="461.9">the plays to the host</tspan></text></g><g class="pele-edge-label" data-id="edge6"><rect x="130.19" y="514" width="99.83" height="21" rx="3" fill="var(--_bg)"/><text x="180.11" y="529.4" text-anchor="middle">the Sync stops</text></g><g class="pele-edge-label" data-id="edge7"><rect x="10" y="689" width="190.87" height="21" rx="3" fill="var(--_bg)"/><text x="105.43" y="704.4" text-anchor="middle">the Sync deletes Play Counts</text></g><g class="pele-edge-label" data-id="edge8"><rect x="581.36" y="636" width="99.83" height="21" rx="3" fill="var(--_bg)"/><text x="631.27" y="651.4" text-anchor="middle">the Sync stops</text></g><g class="pele-edge-label" data-id="edge9"><rect x="250.02" y="506.5" width="174.53" height="36" rx="3" fill="var(--_bg)"/><text text-anchor="middle" xml:space="preserve"><tspan x="337.29" y="520.4">the Sync stops or the Sync</tspan><tspan x="337.29" y="538.4">ends</tspan></text></g><g class="pele-edge-label" data-id="edge10"><rect x="220.87" y="689" width="99.83" height="21" rx="3" fill="var(--_bg)"/><text x="270.78" y="704.4" text-anchor="middle">the Sync stops</text></g><g class="pele-edge-label" data-id="edge11"><rect x="701.19" y="628.5" width="186.19" height="36" rx="3" fill="var(--_bg)"/><text text-anchor="middle" xml:space="preserve"><tspan x="794.28" y="642.4">you start a Sync, and it skips</tspan><tspan x="794.28" y="660.4">the plays that it read</tspan></text></g><g class="pele-edge-label" data-id="edge12"><rect x="575.92" y="820" width="110.7" height="21" rx="3" fill="var(--_bg)"/><text x="631.27" y="835.4" text-anchor="middle">you play a Track</text></g><g class="pele-edge-label" data-id="edge13"><rect x="805.05" y="750.5" width="184.65" height="36" rx="3" fill="var(--_bg)"/><text text-anchor="middle" xml:space="preserve"><tspan x="897.38" y="764.4">you start a Sync, and it adds</tspan><tspan x="897.38" y="782.4">the read plays again</tspan></text></g></g><g class="pele-nodes"><g class="pele-node pele-state tan mayBreak bugPath" data-id="s0" transform="translate(335.69,225)"><rect x="-115.15" y="-22" width="230.3" height="44" rx="10" fill="var(--_s)" stroke="var(--_b)" style="fill:#fff3e6;stroke:#1680f3;stroke-width:2.5px;"/><text class="pele-label" style="fill:#b85a06;" x="0" y="5.6" text-anchor="middle">No new plays on the Device</text></g><g class="pele-node pele-state blue mayBreak bugPath" data-id="s1" transform="translate(779.04,524.5)"><rect x="-100.03" y="-31" width="200.06" height="62" rx="10" fill="var(--_s)" stroke="var(--_b)" style="fill:#fff3e6;stroke:#1680f3;stroke-width:2.5px;"/><text class="pele-label" style="fill:#b85a06;" text-anchor="middle" xml:space="preserve"><tspan x="0" y="-4.9">Read-back done, music</tspan><tspan x="0" y="16.1">copies</tspan></text></g><g class="pele-node pele-state tan bugPath" data-id="s2" transform="translate(730.69,387.5)"><rect x="-104.03" y="-22" width="208.06" height="44" rx="10" fill="var(--_s)" stroke="var(--_b)" style="fill:#e5d9ce;stroke:#1680f3;stroke-width:2.5px;"/><text class="pele-label" style="fill:#1f1f1f;" x="0" y="5.6" text-anchor="middle">New plays on the Device</text></g><g class="pele-node pele-state blue mayBreak" data-id="s3" transform="translate(188.11,646.5)"><rect x="-76.9" y="-22" width="153.81" height="44" rx="10" fill="var(--_s)" stroke="var(--_b)" style="fill:#fff3e6;stroke:#e8730c;stroke-width:2.5px;"/><text class="pele-label" style="fill:#b85a06;" x="0" y="5.6" text-anchor="middle">iTunesDB written</text></g><g class="pele-node pele-state blue mayBreak" data-id="s4" transform="translate(258.7,768.5)"><rect x="-87.59" y="-22" width="175.18" height="44" rx="10" fill="var(--_s)" stroke="var(--_b)" style="fill:#fff3e6;stroke:#e8730c;stroke-width:2.5px;"/><text class="pele-label" style="fill:#b85a06;" x="0" y="5.6" text-anchor="middle">Play Counts deleted</text></g><g class="pele-node pele-state tan mayBreak bugPath" data-id="s5" transform="translate(631.27,768.5)"><rect x="-94.26" y="-31" width="188.51" height="62" rx="10" fill="var(--_s)" stroke="var(--_b)" style="fill:#fff3e6;stroke:#1680f3;stroke-width:2.5px;"/><text class="pele-label" style="fill:#b85a06;" text-anchor="middle" xml:space="preserve"><tspan x="0" y="-4.9">Read plays still on the</tspan><tspan x="0" y="16.1">Device</tspan></text></g><g class="pele-node pele-state tan breaks bugPath" data-id="s6" transform="translate(739.56,899.5)"><rect x="-112.5" y="-31" width="224.99" height="62" rx="10" fill="var(--_s)" stroke="var(--_b)" style="fill:#ffecee;stroke:#1680f3;stroke-width:2.5px;"/><text class="pele-label" style="fill:#cd2834;" text-anchor="middle" xml:space="preserve"><tspan x="0" y="-4.9">Read and new plays in one</tspan><tspan x="0" y="16.1">file</tspan></text></g><g class="pele-node pele-state-start" data-id="root_start" transform="translate(335.69,152)"><circle r="7" fill="var(--_l)"/></g><g class="pele-node pele-state tan" data-id="lg0" transform="translate(439.59,101.5)"><rect x="-40.9" y="-22" width="81.79" height="44" rx="10" fill="var(--_s)" stroke="var(--_b)" style="fill:#e5d9ce;"/><text class="pele-label" style="fill:#1f1f1f;" x="0" y="5.6" text-anchor="middle">waiting</text></g><g class="pele-node pele-state blue" data-id="lg1" transform="translate(563.6,101.5)"><rect x="-43.12" y="-22" width="86.24" height="44" rx="10" fill="var(--_s)" stroke="var(--_b)" style="fill:#c3e0ff;"/><text class="pele-label" style="fill:#1f1f1f;" x="0" y="5.6" text-anchor="middle">syncing</text></g><g class="pele-node pele-state breaks" data-id="lg2" transform="translate(739.64,101.5)"><rect x="-92.91" y="-31" width="185.82" height="62" rx="10" fill="var(--_s)" stroke="var(--_b)" style="fill:#ffecee;stroke:#e72e3b;stroke-width:2.5px;"/><text class="pele-label" style="fill:#cd2834;" text-anchor="middle" xml:space="preserve"><tspan x="0" y="-4.9">Breaks</tspan><tspan x="0" y="16.1">NoPlayCountedTwice</tspan></text></g><g class="pele-node pele-state mayBreak" data-id="lg3" transform="translate(973.91,101.5)"><rect x="-101.36" y="-41.5" width="202.72" height="83" rx="10" fill="var(--_s)" stroke="var(--_b)" style="fill:#fff3e6;stroke:#e8730c;stroke-width:2.5px;"/><text class="pele-label" style="fill:#b85a06;" text-anchor="middle" xml:space="preserve"><tspan x="0" y="-15.4">Breaks</tspan><tspan x="0" y="5.6">NoPlayCountedTwice in</tspan><tspan x="0" y="26.6">some cases</tspan></text></g><g class="pele-node pele-state bugPath" data-id="lg4" transform="translate(1223.75,101.5)"><rect x="-108.48" y="-31" width="216.96" height="62" rx="10" fill="var(--_s)" stroke="var(--_b)" style="stroke:#1680f3;stroke-width:2.5px;"/><text class="pele-label" text-anchor="middle" xml:space="preserve"><tspan x="0" y="-4.9">Path to the</tspan><tspan x="0" y="16.1">NoPlayCountedTwice bug</tspan></text></g></g></g></svg>
