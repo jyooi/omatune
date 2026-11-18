@@ -173,7 +173,7 @@ async function tlc(
 const git = async (root: string, ...args: string[]): Promise<string> =>
   (await runFile("git", args, { cwd: root, maxBuffer: 64 * 1024 * 1024 })).stdout.trim()
 
-async function currentBranch(root: string): Promise<string | undefined> {
+export async function currentBranch(root: string): Promise<string | undefined> {
   const fromPullRequest = process.env.GITHUB_HEAD_REF
   if (fromPullRequest) {
     return fromPullRequest
@@ -181,7 +181,12 @@ async function currentBranch(root: string): Promise<string | undefined> {
   try {
     return await git(root, "symbolic-ref", "--short", "-q", "HEAD")
   } catch {
-    return undefined
+    const branches = (
+      await git(root, "for-each-ref", "--points-at", "HEAD", "--format=%(refname:short)", "refs/heads/")
+    )
+      .split("\n")
+      .filter((name) => name !== "")
+    return branches.length === 1 ? branches[0] : undefined
   }
 }
 

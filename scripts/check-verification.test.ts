@@ -4,7 +4,7 @@ import { createHash } from "node:crypto"
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { checkChart, type VerificationRecord } from "./check-verification.ts"
+import { checkChart, currentBranch, type VerificationRecord } from "./check-verification.ts"
 
 const skill = ".claude/skills/verify-read-back"
 const branch = "feature/x"
@@ -171,5 +171,47 @@ describe("state chart file of a change", () => {
   test("needs no SVG image for a no state change note", async () => {
     commit({ [chartPath]: "No state change: this PR changes only docs.\n" })
     expect(await checkChart(root, record, branch)).toEqual([])
+  })
+})
+
+describe("branch name of a change", () => {
+  const pullRequestBranch = process.env.GITHUB_HEAD_REF
+  beforeEach(() => {
+    delete process.env.GITHUB_HEAD_REF
+  })
+  afterEach(() => {
+    if (pullRequestBranch !== undefined) {
+      process.env.GITHUB_HEAD_REF = pullRequestBranch
+    }
+  })
+
+  test("is the checked out branch", async () => {
+    expect(await currentBranch(root)).toBe(branch)
+  })
+
+  test("is the one branch at a detached HEAD", async () => {
+    commit({ "README.md": "two\n" })
+    git("checkout", "-q", "--detach")
+    expect(await currentBranch(root)).toBe(branch)
+  })
+
+  test("is unknown when several branches point at a detached HEAD", async () => {
+    git("checkout", "-q", "--detach")
+    expect(await currentBranch(root)).toBeUndefined()
+  })
+
+  test("is unknown when no branch points at a detached HEAD", async () => {
+    commit({ "README.md": "two\n" })
+    git("checkout", "-q", "--detach")
+    commit({ "README.md": "three\n" })
+    expect(await currentBranch(root)).toBeUndefined()
+  })
+
+  test("makes a detached HEAD fail with a chart file not named by the branch", async () => {
+    commit({ [`${skill}/charts/other.md`]: "No state change: docs.\n" })
+    git("checkout", "-q", "--detach")
+    expect(await checkChart(root, record, await currentBranch(root))).toEqual([
+      `The change adds no state chart file ${chartPath} for the branch ${branch}. Follow the verify-read-back skill to add one.`,
+    ])
   })
 })
