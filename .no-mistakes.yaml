@@ -1,0 +1,3 @@
+commands:
+  prepare: bun install --frozen-lockfile
+  test: bun test && bun run verify

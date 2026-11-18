@@ -1,0 +1,65 @@
+{
+  "syncCommit": "5c38e3ab9cc5cac72de30a798d08d9ed38fc7fdc",
+  "tool": {
+    "name": "TLC",
+    "version": "1.7.4",
+    "url": "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar",
+    "sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88"
+  },
+  "model": {
+    "spec": {
+      "file": "ReadBack.tla",
+      "sha256": "2677581d3ec5cdd08da0cd84df60f43df7d4154ac2ed21e7b477edbd92d348a8"
+    },
+    "config": {
+      "file": "ReadBack.cfg",
+      "sha256": "29ab789d294072df1f94e31b7b2e5d13185a276cfca11d07b065fe4ad183c59c"
+    }
+  },
+  "covers": [
+    {
+      "file": "packages/core/src/read-back.ts",
+      "functions": ["runPlayDataReadBack"],
+      "sha256": "dfdcd4b3d5d1a87e27c688a58f5fc4a83852b3e1cfc1ba1c4d717eeda672032a"
+    },
+    {
+      "file": "packages/core/src/play-data.ts",
+      "functions": [
+        "hashPlayCountsBytes",
+        "mergePlayDataEntry",
+        "withMergedPlayCounts",
+        "writePlayDataAtomic"
+      ],
+      "sha256": "b5bdb306d18fb783a91eb72be61c3cac9bdb259c1546588fc2c443e3f5832509"
+    },
+    {
+      "file": "packages/core/src/sync.ts",
+      "functions": ["runPipeline", "runReadBack"],
+      "sha256": "6f9df1ec29b45efc6c4c3a100dfb6da847d75e3b3b838c0e70d8b36589251fcd"
+    }
+  ],
+  "properties": [
+    {
+      "name": "NoPlayLost",
+      "status": "holds",
+      "break": {
+        "code": "packages/core/src/sync.ts runReadBack does not write play-data.json after the merge",
+        "find": "              /\\ host' = host + playCounts.count\n              /\\ merged' = playCounts",
+        "replace": "              /\\ UNCHANGED <<host, merged>>"
+      }
+    },
+    {
+      "name": "RedoCountsOnce",
+      "status": "holds",
+      "break": {
+        "code": "packages/core/src/read-back.ts runPlayDataReadBack merges a Play Counts file that mergedPlayCounts already names",
+        "find": "       ELSE IF playCounts = merged",
+        "replace": "       ELSE IF FALSE"
+      }
+    },
+    {
+      "name": "NoPlayCountedTwice",
+      "status": "finding"
+    }
+  ]
+}
